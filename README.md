@@ -9,6 +9,7 @@ This is a **basic MCP server** with:
 - ✅ STDIO transport (standard input/output)
 - ✅ .NET 10 implementation
 - ✅ Multiple testing methods
+- ✅ Claude Desktop integration
 
 Perfect for learning MCP basics!
 
@@ -44,6 +45,20 @@ Then in the browser:
 4. Click "Call Tool"
 5. See your system information!
 
+### 4. Test with Claude Desktop (LLM Integration) ⭐ Recommended
+```powershell
+# Automated setup
+.\setup-claude-desktop.ps1
+```
+
+Then in Claude Desktop:
+1. Restart Claude Desktop
+2. Ask: "What tools do you have access to?"
+3. Ask: "What is my system information?"
+4. Claude uses the MCP server to get your system info!
+
+See [CLAUDE_DESKTOP_SETUP.md](docs/CLAUDE_DESKTOP_SETUP.md) for detailed instructions.
+
 ## The Tool
 
 ### `get_system_info`
@@ -68,11 +83,12 @@ Returns comprehensive Windows system diagnostics.
 
 ## Testing Methods
 
-| Method | Visual | Interactive | Best For |
-|--------|--------|-------------|----------|
-| **mcp-cli** | ❌ No | ❌ No | Quick tests, CI/CD |
-| **MCP Inspector** | ✅ Yes | ✅ Yes | Development, learning |
-| **HTTP/REST** | ❌ No | ❌ No | Protocol understanding |
+| Method | Visual | Interactive | LLM | Best For |
+|--------|--------|-------------|-----|----------|
+| **mcp-cli** | ❌ No | ❌ No | ❌ No | Quick tests, CI/CD |
+| **MCP Inspector** | ✅ Yes | ✅ Yes | ❌ No | Development, debugging |
+| **Claude Desktop** | ✅ Yes | ✅ Yes | ✅ Yes | Demos, production |
+| **HTTP/REST** | ❌ No | ❌ No | ❌ No | Protocol understanding |
 
 ## Project Structure
 
@@ -83,11 +99,15 @@ MCPDemo/
 │   ├── SystemInfoResult.cs     # Data model
 │   └── ConsoleUi.cs            # UI formatting
 ├── server_config.json          # MCP configuration
+├── setup-claude-desktop.ps1    # Claude Desktop setup (Windows)
+├── setup-claude-desktop.sh     # Claude Desktop setup (macOS/Linux)
 ├── launch-inspector.ps1        # Launch Inspector
 ├── test-mcp-server.ps1         # Automated tests
 └── docs/                       # Documentation
     ├── TESTING.md              # Testing guide
-    └── MCP_INSPECTOR_GUIDE.md  # Inspector guide
+    ├── MCP_INSPECTOR_GUIDE.md  # Inspector guide
+    ├── CLAUDE_DESKTOP_SETUP.md # Claude Desktop guide
+    └── MCP_DEMO_Roadmap.md     # Development roadmap
 ```
 
 ## Requirements
@@ -95,12 +115,15 @@ MCPDemo/
 - .NET 10 SDK
 - Node.js 16+ (for Inspector)
 - Python 3.8+ (for mcp-cli)
+- Claude Desktop (for LLM integration)
 
 ## Documentation
 
+- **[CLAUDE_DESKTOP_SETUP.md](docs/CLAUDE_DESKTOP_SETUP.md)** - Claude Desktop integration ⭐
 - **[TESTING.md](docs/TESTING.md)** - Complete testing guide
 - **[MCP_INSPECTOR_GUIDE.md](docs/MCP_INSPECTOR_GUIDE.md)** - Inspector guide  
 - **[QUICKSTART.md](QUICKSTART.md)** - Step-by-step tutorial
+- **[MCP_DEMO_Roadmap.md](docs/MCP_DEMO_Roadmap.md)** - Development roadmap
 
 ## License
 
@@ -110,3 +133,4 @@ MIT License
 
 - [MCP Specification](https://modelcontextprotocol.io/)
 - [MCP Inspector](https://github.com/modelcontextprotocol/inspector)
+- [Claude Desktop](https://claude.ai/download)
