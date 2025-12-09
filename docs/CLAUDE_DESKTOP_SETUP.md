@@ -2,35 +2,78 @@
 
 This guide shows you how to configure Claude Desktop to use the WinDiag MCP Server.
 
-## Quick Setup (Automated)
+## Quick Setup (Automated) ⭐ Recommended
+
+The automated scripts will **install Claude Desktop** (if needed) and configure it for you!
 
 ### Windows
 ```powershell
 .\setup-claude-desktop.ps1
 ```
 
-### macOS/Linux
+**What it does:**
+- ✅ Installs Claude Desktop using `winget` (if not already installed)
+- ✅ Builds the WinDiag MCP Server
+- ✅ Configures Claude Desktop to use the server
+- ✅ Creates backup of existing configuration
+- ✅ Checks if restart is needed
+
+### macOS
 ```bash
 ./setup-claude-desktop.sh
 ```
 
-The script will:
-1. ✅ Check if Claude Desktop is installed
-2. ✅ Build the WinDiag MCP Server
-3. ✅ Configure Claude Desktop to use the server
-4. ✅ Create backup of existing configuration
+**What it does:**
+- ✅ Installs Claude Desktop using Homebrew (if not already installed)
+- ✅ Builds the WinDiag MCP Server
+- ✅ Configures Claude Desktop to use the server
+- ✅ Creates backup of existing configuration
+- ✅ Checks if restart is needed
+
+### Linux
+```bash
+./setup-claude-desktop.sh
+```
+
+**Note:** On Linux, you'll need to install Claude Desktop manually from https://claude.ai/download, then run the script to configure it.
 
 ---
 
-## Manual Setup
+## Manual Installation Options
+
+If you prefer to install Claude Desktop manually:
+
+### Windows
+
+**Option 1: Using winget** (Recommended)
+```powershell
+winget install Anthropic.Claude
+```
+
+**Option 2: Download installer**
+Visit: https://claude.ai/download
+
+### macOS
+
+**Option 1: Using Homebrew** (Recommended)
+```bash
+brew install --cask claude
+```
+
+**Option 2: Download installer**
+Visit: https://claude.ai/download
+
+### Linux
+
+Visit: https://claude.ai/download
+
+---
+
+## Manual Configuration
 
 If you prefer to configure manually or the script doesn't work:
 
-### Step 1: Install Claude Desktop
-
-Download from: https://claude.ai/download
-
-### Step 2: Locate Configuration File
+### Step 1: Locate Configuration File
 
 **Windows:**
 ```
@@ -47,7 +90,7 @@ Download from: https://claude.ai/download
 ~/.config/Claude/claude_desktop_config.json
 ```
 
-### Step 3: Edit Configuration
+### Step 2: Edit Configuration
 
 Open the configuration file and add:
 
@@ -71,7 +114,7 @@ Open the configuration file and add:
 - Use the **absolute path** to your project
 - If you have existing `mcpServers`, add `windiag` to the existing object
 
-### Step 4: Restart Claude Desktop
+### Step 3: Restart Claude Desktop
 
 Completely close and reopen Claude Desktop for the changes to take effect.
 

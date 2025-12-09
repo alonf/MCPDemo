@@ -1,6 +1,6 @@
 #!/bin/bash
 # Setup Claude Desktop with WinDiag MCP Server (macOS/Linux)
-# This script configures Claude Desktop to use the WinDiag MCP Server
+# This script installs (if needed) and configures Claude Desktop to use the WinDiag MCP Server
 
 set -e
 
@@ -21,9 +21,11 @@ echo ""
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS
     CLAUDE_CONFIG_DIR="$HOME/Library/Application Support/Claude"
+    PLATFORM="macOS"
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     # Linux
     CLAUDE_CONFIG_DIR="$HOME/.config/Claude"
+    PLATFORM="Linux"
 else
     echo "Unsupported operating system: $OSTYPE"
     exit 1
@@ -31,24 +33,72 @@ fi
 
 CLAUDE_CONFIG_FILE="$CLAUDE_CONFIG_DIR/claude_desktop_config.json"
 
-echo "[1/4] Checking Claude Desktop installation..."
+echo "[1/5] Checking Claude Desktop installation..."
 
 if [ ! -d "$CLAUDE_CONFIG_DIR" ]; then
     echo "      Claude Desktop not found!"
     echo ""
-    echo "Please install Claude Desktop first:"
-    echo "  1. Visit: https://claude.ai/download"
-    echo "  2. Download and install Claude Desktop"
-    echo "  3. Run this script again"
-    echo ""
-    exit 1
+    
+    # macOS: Try Homebrew installation
+    if [[ "$PLATFORM" == "macOS" ]]; then
+        if command -v brew &> /dev/null; then
+            echo "      Attempting to install Claude Desktop using Homebrew..."
+            echo ""
+            
+            if brew install --cask claude; then
+                echo "      Claude Desktop installed successfully!"
+                echo "      Please restart this script to configure it."
+                echo ""
+                exit 0
+            else
+                echo "      Automated installation failed."
+                echo ""
+                echo "Please install Claude Desktop manually:"
+                echo "  Option 1 (Recommended):"
+                echo "    brew install --cask claude"
+                echo ""
+                echo "  Option 2: Download from"
+                echo "    https://claude.ai/download"
+                echo ""
+                echo "Then run this script again."
+                echo ""
+                exit 1
+            fi
+        else
+            echo "      Homebrew not available. Install manually:"
+            echo ""
+            echo "  Option 1: Install Homebrew first"
+            echo "    /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+            echo "    Then run: brew install --cask claude"
+            echo ""
+            echo "  Option 2: Download Claude Desktop directly"
+            echo "    https://claude.ai/download"
+            echo ""
+            echo "Then run this script again."
+            echo ""
+            exit 1
+        fi
+    fi
+    
+    # Linux: Manual installation required
+    if [[ "$PLATFORM" == "Linux" ]]; then
+        echo "      Please install Claude Desktop manually:"
+        echo ""
+        echo "  Visit: https://claude.ai/download"
+        echo ""
+        echo "  Or use your distribution's package manager if available."
+        echo ""
+        echo "Then run this script again."
+        echo ""
+        exit 1
+    fi
 fi
 
 echo "      Claude Desktop found at: $CLAUDE_CONFIG_DIR"
 echo ""
 
 # Build the server first
-echo "[2/4] Building WinDiag MCP Server..."
+echo "[2/5] Building WinDiag MCP Server..."
 if ! dotnet build --nologo --verbosity quiet; then
     echo "      Build failed"
     exit 1
@@ -57,7 +107,7 @@ echo "      Build successful!"
 echo ""
 
 # Create or update Claude Desktop configuration
-echo "[3/4] Configuring Claude Desktop..."
+echo "[3/5] Configuring Claude Desktop..."
 
 # Create config directory if it doesn't exist
 mkdir -p "$CLAUDE_CONFIG_DIR"
@@ -89,12 +139,22 @@ echo "      Configuration written successfully!"
 echo ""
 
 # Display configuration
-echo "[4/4] Configuration Summary:"
+echo "[4/5] Configuration Summary:"
 echo ""
 echo "  Config File: $CLAUDE_CONFIG_FILE"
 echo ""
 echo "  MCP Server Configuration:"
 cat "$CLAUDE_CONFIG_FILE"
+echo ""
+
+# Check if Claude Desktop is running
+echo "[5/5] Checking Claude Desktop status..."
+if pgrep -x "Claude" > /dev/null; then
+    echo "      Claude Desktop is running"
+    echo "      You need to restart it for changes to take effect"
+else
+    echo "      Claude Desktop is not currently running"
+fi
 echo ""
 
 echo "============================================"
