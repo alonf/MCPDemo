@@ -10,6 +10,7 @@ This is a **basic MCP server** with:
 - ✅ .NET 10 implementation
 - ✅ Multiple testing methods
 - ✅ Claude Desktop integration
+- ✅ C# MCP client implementation
 
 Perfect for learning MCP basics!
 
@@ -59,6 +60,20 @@ Then in Claude Desktop:
 
 See [CLAUDE_DESKTOP_SETUP.md](docs/CLAUDE_DESKTOP_SETUP.md) for detailed instructions.
 
+### 5. Test with C# Client (Programmatic Access) 🎯 NEW!
+```powershell
+# Run the C# client
+.\run-csharp-client.ps1
+```
+
+The C# client demonstrates:
+- Starting the MCP server programmatically
+- Implementing the JSON-RPC protocol
+- Calling tools from C# code
+- Perfect for automation and integration!
+
+See [CSHARP_CLIENT_GUIDE.md](docs/CSHARP_CLIENT_GUIDE.md) for detailed documentation.
+
 ## The Tool
 
 ### `get_system_info`
@@ -83,31 +98,36 @@ Returns comprehensive Windows system diagnostics.
 
 ## Testing Methods
 
-| Method | Visual | Interactive | LLM | Best For |
-|--------|--------|-------------|-----|----------|
-| **mcp-cli** | ❌ No | ❌ No | ❌ No | Quick tests, CI/CD |
-| **MCP Inspector** | ✅ Yes | ✅ Yes | ❌ No | Development, debugging |
-| **Claude Desktop** | ✅ Yes | ✅ Yes | ✅ Yes | Demos, production |
-| **HTTP/REST** | ❌ No | ❌ No | ❌ No | Protocol understanding |
+| Method | Visual | Interactive | LLM | Programmatic | Best For |
+|--------|--------|-------------|-----|--------------|----------|
+| **mcp-cli** | ❌ No | ❌ No | ❌ No | ⚠️ Limited | Quick tests, CI/CD |
+| **MCP Inspector** | ✅ Yes | ✅ Yes | ❌ No | ❌ No | Development, debugging |
+| **Claude Desktop** | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No | Demos, production |
+| **C# Client** | ❌ No | ❌ No | ❌ No | ✅ Yes | Automation, integration |
+| **HTTP/REST** | ❌ No | ❌ No | ❌ No | ✅ Yes | Protocol understanding |
 
 ## Project Structure
 
 ```
 MCPDemo/
-├── WinDiagMcpServer/           # .NET 10 MCP server
-│   ├── Program.cs              # Server setup
-│   ├── SystemInfoResult.cs     # Data model
-│   └── ConsoleUi.cs            # UI formatting
-├── server_config.json          # MCP configuration
-├── setup-claude-desktop.ps1    # Claude Desktop setup (Windows)
-├── setup-claude-desktop.sh     # Claude Desktop setup (macOS/Linux)
-├── launch-inspector.ps1        # Launch Inspector
-├── test-mcp-server.ps1         # Automated tests
-└── docs/                       # Documentation
-    ├── TESTING.md              # Testing guide
-    ├── MCP_INSPECTOR_GUIDE.md  # Inspector guide
-    ├── CLAUDE_DESKTOP_SETUP.md # Claude Desktop guide
-    └── MCP_DEMO_Roadmap.md     # Development roadmap
+├── WinDiagMcpServer/            # .NET 10 MCP server
+│   ├── Program.cs               # Server setup
+│   ├── SystemInfoResult.cs      # Data model
+│   └── ConsoleUi.cs             # UI formatting
+├── WinDiagMcpClient/            # C# MCP client
+│   └── Program.cs               # Client implementation
+├── server_config.json           # MCP configuration
+├── setup-claude-desktop.ps1     # Claude Desktop setup (Windows)
+├── setup-claude-desktop.sh      # Claude Desktop setup (macOS/Linux)
+├── launch-inspector.ps1         # Launch Inspector
+├── test-mcp-server.ps1          # Automated tests
+├── run-csharp-client.ps1        # C# client runner
+└── docs/                        # Documentation
+    ├── TESTING.md               # Testing guide
+    ├── MCP_INSPECTOR_GUIDE.md   # Inspector guide
+    ├── CLAUDE_DESKTOP_SETUP.md  # Claude Desktop guide
+    ├── CSHARP_CLIENT_GUIDE.md   # C# client guide
+    └── MCP_DEMO_Roadmap.md      # Development roadmap
 ```
 
 ## Requirements
@@ -124,6 +144,7 @@ MCPDemo/
 - **[MCP_INSPECTOR_GUIDE.md](docs/MCP_INSPECTOR_GUIDE.md)** - Inspector guide  
 - **[QUICKSTART.md](QUICKSTART.md)** - Step-by-step tutorial
 - **[MCP_DEMO_Roadmap.md](docs/MCP_DEMO_Roadmap.md)** - Development roadmap
+- **[CSHARP_CLIENT_GUIDE.md](docs/CSHARP_CLIENT_GUIDE.md)** - C# client guide
 
 ## License
 
