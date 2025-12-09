@@ -61,3 +61,15 @@ string prompt = "What is the system information?";
 var agentResponse = await agent.RunAsync(prompt);
 
 Console.WriteLine(agentResponse.Text);
+Console.WriteLine();
+Console.WriteLine("================================================");
+
+prompt = "List the processes running on the system. Return the process list by process name groups, for example: Notpad.exe: 1515, 2048, 5001.";
+agentResponse = await agent.RunAsync(prompt);
+Console.WriteLine(agentResponse.Text);
+Console.WriteLine();
+Console.WriteLine("================================================");
+
+prompt = "Get detailed information of the dotnet process that execute the WinDiagMcpServer. Provide all the information that you can get!";
+agentResponse = await agent.RunAsync(prompt);
+Console.WriteLine(agentResponse.Text);

@@ -131,16 +131,13 @@ You can reuse the “single demo that evolves” idea, just specialized to diagn
 
   * `listProcesses()`
   * `getProcessDetails(pid)`
-* Add prompt:
-
-  * `explainProcessList(processListResourceUri)`
-* Maybe create a resource snapshot of `listProcesses()` output.
+  * Optional: paging parameters to keep responses small
 
 Teaching points:
 
 * Input/Output schema for tools.
-* Resources vs direct tool responses.
-* Prompt using resources.
+* Handling large result sets (paging, filtering).
+* Difference between lightweight summaries and detailed lookups.
 
 ---
 
@@ -148,15 +145,17 @@ Teaching points:
 
 * Tool: `snapshotEventLog(logName, hoursBack)`
 
-  * Writes file into `DiagnosticsData\EventLogs\...json`.
+  * Writes file into `DiagnosticsData/EventLogs/...json`.
 * Expose these files as **resources**.
 * Prompt: `analyzeEventLog(resourceUri)`.
+* (Optional) Prompt: `explainProcessList(processListResourceUri)` once process snapshots are stored as resources.
 
 Teaching points:
 
 * Resource discovery.
 * Separation: **collect** vs **analyze**.
 * Read-only resource semantics.
+* Prompts that consume resource URIs.
 
 ---
 
