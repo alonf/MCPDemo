@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "windiag": {
+      "command": "dotnet",
+      "args": [
+        "c:/Dev/MCPDemo/WinDiagMcpServer/bin/Debug/net10.0-windows/WinDiagMcpServer.dll"
+      ]
+    }
+  }
+}

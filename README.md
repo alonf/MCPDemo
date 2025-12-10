@@ -5,7 +5,9 @@ A simple Model Context Protocol (MCP) server demonstrating Windows diagnostics c
 ## What This Demo Shows
 
 This is a **basic MCP server** with:
-- ✅ Single tool: `get_system_info`
+- ✅ System information tool: `get_system_info`
+- ✅ Event log snapshot tool: `create_event_log_snapshot`
+- ✅ Event log snapshot resources: `eventlog://snapshot/{id}`
 - ✅ STDIO transport (standard input/output)
 - ✅ .NET 10 implementation
 - ✅ Multiple testing methods
@@ -60,34 +62,7 @@ Then in Claude Desktop:
 
 See [CLAUDE_DESKTOP_SETUP.md](docs/CLAUDE_DESKTOP_SETUP.md) for detailed instructions.
 
-### 5. Test with C# Client (Programmatic Access) 🎯 NEW!
-```powershell
-# Run the C# client
-.\run-csharp-client.ps1
-```
-
-The C# client demonstrates:
-- Starting the MCP server programmatically
-- Implementing the JSON-RPC protocol
-- Calling tools from C# code
-- Perfect for automation and integration!
-
-See [CSHARP_CLIENT_GUIDE.md](docs/CSHARP_CLIENT_GUIDE.md) for detailed documentation.
-
-### 6. Prompting Event Log Snapshots (Milestone 3+)
-When using Claude/Desktop or another MCP-aware client, give the model explicit instructions so it can successfully call the `create_event_log_snapshot` tool and then fetch the resource:
-
-1. **Describe the goal clearly** – e.g., "Count Event Log service startup events (ID 6005) in the last 30 days from the System log."  
-2. **Specify the log and XPath** – include a valid Windows Event Log XPath filter such as:
-   ```
-   *[System[Provider[@Name='EventLog'] and EventID=6005 and TimeCreated[timediff(@SystemTime) <= 2592000000]]]
-   ```
-3. **Tell the model to read the resource** – after the tool returns a URI like `resource://eventlogs/{id}.json`, instruct it to call `resources.get` (or the client’s equivalent) and analyze the JSON payload.
-4. **Ask for summarized output** – request specific counts/time ranges so the LLM knows how to interpret the snapshot.
-
-Providing these steps in your prompt dramatically improves success rates, because the model understands both how to build a valid XPath query and how to consume the generated resource.
-
-## The Tool
+## The Tools
 
 ### `get_system_info`
 Returns comprehensive Windows system diagnostics.
@@ -109,6 +84,39 @@ Returns comprehensive Windows system diagnostics.
 }
 ```
 
+### `create_event_log_snapshot`
+Creates a snapshot of Windows Event Log entries and returns an MCP resource URI.
+
+**Parameters**:
+- `logName`: Name of the event log (Application, Security, Setup, System, ForwardedEvents)
+- `xPathQuery`: XPath query to filter events
+
+**Returns**:
+```json
+{
+  "resourceUri": "eventlog://snapshot/abc123...",
+  "snapshotId": "abc123...",
+  "eventCount": 42
+}
+```
+
+**Example Usage**:
+```
+Ask Claude: "Create a snapshot of Application log errors from the last 24 hours"
+Claude will:
+1. Call create_event_log_snapshot with appropriate XPath query
+2. Receive the resource URI
+3. Use the resource URI to fetch the snapshot data
+4. Analyze and present the findings
+```
+
+## Resources
+
+### `eventlog://snapshot/{id}`
+MCP resource containing event log snapshot data in JSON format.
+
+Accessed via the MCP resource protocol when Claude or another client needs to fetch the actual snapshot data.
+
 ## Testing Methods
 
 | Method | Visual | Interactive | LLM | Programmatic | Best For |
@@ -116,8 +124,6 @@ Returns comprehensive Windows system diagnostics.
 | **mcp-cli** | ❌ No | ❌ No | ❌ No | ⚠️ Limited | Quick tests, CI/CD |
 | **MCP Inspector** | ✅ Yes | ✅ Yes | ❌ No | ❌ No | Development, debugging |
 | **Claude Desktop** | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No | Demos, production |
-| **C# Client** | ❌ No | ❌ No | ❌ No | ✅ Yes | Automation, integration |
-| **HTTP/REST** | ❌ No | ❌ No | ❌ No | ✅ Yes | Protocol understanding |
 
 ## Project Structure
 
@@ -125,22 +131,18 @@ Returns comprehensive Windows system diagnostics.
 MCPDemo/
 ├── WinDiagMcpServer/            # .NET 10 MCP server
 │   ├── Program.cs               # Server setup
-│   ├── SystemInfoResult.cs      # Data model
+│   ├── McpServerEventLogToolType.cs    # Event log tools
+│   ├── McpServerEventLogResourceType.cs # Event log resources
+│   ├── EventLogSnapshotStorage.cs      # In-memory storage
 │   └── ConsoleUi.cs             # UI formatting
-├── WinDiagMcpClient/            # C# MCP client
-│   └── Program.cs               # Client implementation
 ├── server_config.json           # MCP configuration
 ├── setup-claude-desktop.ps1     # Claude Desktop setup (Windows)
 ├── setup-claude-desktop.sh      # Claude Desktop setup (macOS/Linux)
 ├── launch-inspector.ps1         # Launch Inspector
-├── test-mcp-server.ps1          # Automated tests
-├── run-csharp-client.ps1        # C# client runner
 └── docs/                        # Documentation
     ├── TESTING.md               # Testing guide
     ├── MCP_INSPECTOR_GUIDE.md   # Inspector guide
-    ├── CLAUDE_DESKTOP_SETUP.md  # Claude Desktop guide
-    ├── CSHARP_CLIENT_GUIDE.md   # C# client guide
-    └── MCP_DEMO_Roadmap.md      # Development roadmap
+    └── CLAUDE_DESKTOP_SETUP.md  # Claude Desktop guide
 ```
 
 ## Requirements
@@ -154,10 +156,9 @@ MCPDemo/
 
 - **[CLAUDE_DESKTOP_SETUP.md](docs/CLAUDE_DESKTOP_SETUP.md)** - Claude Desktop integration ⭐
 - **[TESTING.md](docs/TESTING.md)** - Complete testing guide
-- **[MCP_INSPECTOR_GUIDE.md](docs/MCP_INSPECTOR_GUIDE.md)** - Inspector guide  
+- **[MCP_INSPECTOR_GUIDE.md](docs/MCP_INSPECTOR_GUIDE.md)** - Inspector guide
 - **[QUICKSTART.md](QUICKSTART.md)** - Step-by-step tutorial
 - **[MCP_DEMO_Roadmap.md](docs/MCP_DEMO_Roadmap.md)** - Development roadmap
-- **[CSHARP_CLIENT_GUIDE.md](docs/CSHARP_CLIENT_GUIDE.md)** - C# client guide
 
 ## License
 

@@ -12,10 +12,14 @@ namespace WinDiagMcpServer;
 public partial class McpServerEventLogResourceType
 {
     private readonly ILogger<McpServerEventLogResourceType> _logger;
+    private readonly IEventLogSnapshotStorage _snapshotStorage;
 
-    public McpServerEventLogResourceType(ILogger<McpServerEventLogResourceType> logger)
+    public McpServerEventLogResourceType(
+        ILogger<McpServerEventLogResourceType> logger,
+        IEventLogSnapshotStorage snapshotStorage)
     {
         _logger = logger;
+        _snapshotStorage = snapshotStorage;
     }
 
     /// <summary>
@@ -33,7 +37,7 @@ public partial class McpServerEventLogResourceType
     public string GetEventLogSnapshotContent(
     RequestContext<ReadResourceRequestParams> context, string id)
     {
-        if (McpServerEventLogToolType.EventLogSnapshots.TryGetValue(id, out var entry))
+        if (_snapshotStorage.TryGetSnapshot(id, out var entry))
         {
             _logger.LogInformation(
                 "Serving event log snapshot {Id} for URI {Uri} with query {XPathQuery}",
@@ -49,7 +53,6 @@ public partial class McpServerEventLogResourceType
             id,
             context.Params?.Uri);
 
-        // Important: surface a proper MCP error if you want the client to see a failure
         throw new McpException($"Unknown resource URI: '{context.Params?.Uri}'");
     }
 }

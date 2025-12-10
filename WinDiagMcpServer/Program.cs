@@ -3,11 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using WinDiagMcpServer;
 
-// Only show banner if not running under Inspector
-if (Environment.GetEnvironmentVariable("MCP_INSPECTOR") != "true")
-{
-    ConsoleUi.RenderBanner();
-}
+ConsoleUi.RenderBanner();
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -30,6 +26,9 @@ builder.Logging.AddJsonConsole(options =>
 });
 builder.Logging.SetMinimumLevel(logLevel);
 
+// Register event log snapshot storage as singleton
+builder.Services.AddSingleton<IEventLogSnapshotStorage, EventLogSnapshotStorage>();
+
 builder.Services.AddMcpServer().
     WithStdioServerTransport().
     WithToolsFromAssembly().
@@ -40,7 +39,7 @@ var app = builder.Build();
 
 var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("McpServer.Startup");
 
-startupLogger.LogInformation("WinDiag MCP Server started with log level {LogLevel}", logLevel);
+startupLogger.LogInformation("WinDiag MCP Server started with log level {Level}", logLevel);
 
 await app.RunAsync();
 

@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics.Eventing.Reader;
 using System.Text.Json;
@@ -20,13 +18,17 @@ public partial class McpServerEventLogToolType
     };
 
     private readonly ILogger<McpServerEventLogToolType> _logger;
+    private readonly IEventLogSnapshotStorage _snapshotStorage;
 
-    public McpServerEventLogToolType(ILogger<McpServerEventLogToolType> logger)
+#pragma warning disable IDE0290
+    public McpServerEventLogToolType(
+        ILogger<McpServerEventLogToolType> logger,
+        IEventLogSnapshotStorage snapshotStorage)
+#pragma warning restore IDE0290
     {
         _logger = logger;
+        _snapshotStorage = snapshotStorage;
     }
-
-    public static ConcurrentDictionary<string, (string XPathQuery, string JsonContent)> EventLogSnapshots { get; } = new();
 
     /// <summary>
     /// Takes a snapshot of the specified Windows event log using an XPath query and returns a resource URI for the snapshot.
@@ -37,8 +39,8 @@ public partial class McpServerEventLogToolType
     [McpServerTool]
     [Description("Take a snapshot of the event log, and create a resource. Return the resource URI")]
     public partial string CreateEventLogSnapshot(
-        [Description("The name of the event log to query (e.g., 'Application', 'Security', 'Setup', 'System').")] string logName,
-        [Description("The XPath query string used to filter the events.")] string xPathQuery)
+    [Description("The name of the event log to query (e.g., 'Application', 'Security', 'Setup', 'System').")] string logName,
+    [Description("The XPath query string used to filter the events.")] string xPathQuery)
     {
         var requestId = Guid.NewGuid();
         _logger.LogInformation("EventLogSnapshot request {RequestId} started for {LogName} with query {XPathQuery}", requestId, logName, xPathQuery);
@@ -54,8 +56,7 @@ public partial class McpServerEventLogToolType
             using var logReader = new EventLogReader(eventsQuery);
             var records = new List<EventLogRecordDto>();
 
-            EventRecord? record;
-            while ((record = logReader.ReadEvent()) is not null)
+            while (logReader.ReadEvent() is { } record)
             {
                 using (record)
                 {
@@ -85,13 +86,26 @@ public partial class McpServerEventLogToolType
             };
 
             var payload = JsonSerializer.Serialize(snapshot, _jsonSerializerOptions);
-            var resourceUri = $"resource://eventlogs/{Guid.NewGuid():N}.json";
-            EventLogSnapshots[resourceUri] = (xPathQuery, payload);
+
+            var snapshotId = Guid.NewGuid().ToString("N");
+            var resourceUri = $"eventlog://snapshot/{snapshotId}";
+
+            _snapshotStorage.AddSnapshot(snapshotId, xPathQuery, payload);
 
             stopwatch.Stop();
-            _logger.LogInformation("EventLogSnapshot request {RequestId} completed. Resource {ResourceUri} with {EventCount} events in {Duration}ms", requestId, resourceUri, records.Count, stopwatch.ElapsedMilliseconds);
+            _logger.LogInformation(
+                "EventLogSnapshot request {RequestId} completed. Resource: {ResourceUri} with {EventCount} events in {Duration}ms",
+                requestId,
+                resourceUri,
+                records.Count,
+                stopwatch.ElapsedMilliseconds);
 
-            return resourceUri;
+            return JsonSerializer.Serialize(new
+            {
+                resourceUri,
+                snapshotId,
+                eventCount = records.Count
+            });
         }
         catch (ArgumentException ex)
         {
@@ -113,12 +127,11 @@ public partial class McpServerEventLogToolType
     /// <returns>A list of snapshot resource descriptors containing the resource URI and XPath query.</returns>
     [McpServerTool]
     [Description("Get the list of all event log snapshot resource URIs and their XPath queries.")]
-    public List<EventLogSnapshotResourceInfo> GetAllEventLogSnapshotResources()
+    public partial List<EventLogSnapshotResourceInfo> GetAllEventLogSnapshotResources()
     {
-        var resources = EventLogSnapshots
+        var resources = _snapshotStorage.GetAllSnapshots()
             .Select(kvp => new EventLogSnapshotResourceInfo
             {
-                // Build the actual resource URI that matches your UriTemplate
                 ResourceUri = $"eventlog://snapshot/{kvp.Key}",
                 XPathQuery = kvp.Value.XPathQuery
             })
