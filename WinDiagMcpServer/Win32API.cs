@@ -36,9 +36,9 @@ internal static class Win32Api
     {
         try
         {
-            IntPtr processHandle = process.Handle;
-            uint gdiObjects = GetGuiResources(processHandle, GrGdiObjects);
-            uint userObjects = GetGuiResources(processHandle, GrUserObjects);
+            var processHandle = process.Handle;
+            var gdiObjects = GetGuiResources(processHandle, GrGdiObjects);
+            var userObjects = GetGuiResources(processHandle, GrUserObjects);
             return (gdiObjects, userObjects);
         }
         catch (Exception)

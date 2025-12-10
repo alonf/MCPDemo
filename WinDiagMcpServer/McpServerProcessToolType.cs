@@ -87,7 +87,7 @@ public partial class McpServerProcessToolType
     /// <returns>A <see cref="TimeSpan"/> representing how long the system has been running.</returns>
     private static TimeSpan GetSystemUptime()
     {
-        long milliseconds = Environment.TickCount64;
+        var milliseconds = Environment.TickCount64;
         return TimeSpan.FromMilliseconds(milliseconds);
     }
 
@@ -105,8 +105,8 @@ public partial class McpServerProcessToolType
             pageNumber = 1;
         }
 
-        int actualPageSize = pageSize.Value;
-        int actualPageNumber = pageNumber.Value;
+        var actualPageSize = pageSize.Value;
+        var actualPageNumber = pageNumber.Value;
 
         result.PageNumber = actualPageNumber;
         result.PageSize = actualPageSize;
@@ -115,10 +115,10 @@ public partial class McpServerProcessToolType
         {
             var processes = getProcessesFunc();
             result.TotalCount = processes.Length;
-            int startIndex = (actualPageNumber - 1) * actualPageSize;
-            int endIndex = Math.Min(startIndex + actualPageSize, processes.Length);
+            var startIndex = (actualPageNumber - 1) * actualPageSize;
+            var endIndex = Math.Min(startIndex + actualPageSize, processes.Length);
 
-            for (int i = startIndex; i < endIndex; i++)
+            for (var i = startIndex; i < endIndex; i++)
             {
                 var processInfo = GetProcessInfo(processes[i]);
                 result.Processes.Add(processInfo);
@@ -208,8 +208,8 @@ public partial class McpServerProcessToolType
 
     private int GetParentProcessId(int processId)
     {
-        int parentProcessId = 0;
-        IntPtr snapshotHandle = Win32Api.CreateToolhelp32Snapshot(Win32Api.SnapshotOptions.Process, 0);
+        var parentProcessId = 0;
+        var snapshotHandle = Win32Api.CreateToolhelp32Snapshot(Win32Api.SnapshotOptions.Process, 0);
         if (snapshotHandle != IntPtr.Zero)
         {
             var processEntry = new Win32Api.ProcessEntry32

@@ -30,6 +30,7 @@
     <None Include="..\docs\**\*" Link="docs\%(RecursiveDir)%(Filename)%(Extension)" />
     <None Include="..\scripts\**\*" Link="scripts\%(RecursiveDir)%(Filename)%(Extension)" />
     <None Remove="..\docs\CSHARP_CLIENT_GUIDE.md" />
+    <None Remove="..\docs\DEPENDENCY_INJECTION_REFACTORING.md" />
     <None Remove="..\docs\MILESTONE_1_QUICK_REF.md" />
     <None Remove="..\docs\MILESTONE_1_SUMMARY.md" />
     <None Remove="..\docs\TESTING.md" />

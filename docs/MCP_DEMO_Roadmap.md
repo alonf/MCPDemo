@@ -1,6 +1,6 @@
 ## 1. How diagnostics maps to MCP concepts
 
-Think in terms of one **“System Diagnostics MCP Server”** running on the local machine (C#/.NET 8 is a perfect fit):
+Think in terms of one **“System Diagnostics MCP Server”** running on the local machine (C#/.NET 10 is a perfect fit):
 
 ### Tools (active operations)
 

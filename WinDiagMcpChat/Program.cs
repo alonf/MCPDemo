@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Text.Json;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Agents.AI;
@@ -16,7 +15,7 @@ Console.WriteLine();
 
 var endpoint = new Uri("https://alonlecturedemo-resource.cognitiveservices.azure.com/");
 var credential = new DefaultAzureCredential();
-string deploymentName = "model-router";
+var deploymentName = "model-router";
 
 var solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
 var projectPath = Path.Combine(solutionRoot, "WinDiagMcpServer", "WinDiagMcpServer.csproj");
@@ -41,7 +40,7 @@ var mcpClient = await McpClient.CreateAsync(
     }));
 
 Console.WriteLine("Fetching tools...");
-IList<McpClientTool> mcpTools = await mcpClient.ListToolsAsync();
+var mcpTools = await mcpClient.ListToolsAsync();
 var allTools = mcpTools.Cast<AITool>().ToList();
 
 // Define the internal tool for reading resources
@@ -75,18 +74,6 @@ async Task<string> ReadMcpResource(
     }
 }
 
-// Create the internal tool
-// Note: Assuming AITool can be created from AIFunction or similar. 
-// Since I don't have the exact API, I'll try to use AIFunctionFactory and wrap it if possible.
-// If AITool is a base class, I might need a wrapper.
-// Let's try to use AIFunctionFactory.Create and see if we can add it.
-// The Microsoft.Agents.AI library usually works with AIFunctions.
-// However, the existing code casts McpClientTool to AITool.
-// Let's try to create a generic AITool wrapper if needed, or use a provided one.
-// For now, I will assume there is a way to convert.
-// Actually, looking at the library patterns, AITool might just be a wrapper around AIFunction.
-// Let's try: new AITool(AIFunctionFactory.Create(...))
-
 var readResourceFunction = AIFunctionFactory.Create(ReadMcpResource, "read_resource", "Reads the content of an MCP resource provided by other tools.");
 allTools.Add(readResourceFunction);
 
@@ -109,8 +96,15 @@ while (true)
 {
     Console.Write("User: ");
     var input = Console.ReadLine();
-    if (string.IsNullOrWhiteSpace(input)) continue;
-    if (input.Trim().ToLower() == "exit") break;
+    if (string.IsNullOrWhiteSpace(input))
+    {
+        continue;
+    }
+
+    if (input.Trim().ToLower() == "exit")
+    {
+        break;
+    }
 
     try
     {
@@ -122,8 +116,4 @@ while (true)
         Console.WriteLine($"Error: {ex.Message}");
     }
     Console.WriteLine();
-}
-
-public class MyFunctionTool : AITool
-{
 }

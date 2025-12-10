@@ -3,7 +3,6 @@ using System.Text.Json;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Agents.AI;
-using Microsoft.Extensions.AI;
 using OpenAI;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -16,7 +15,7 @@ Console.WriteLine();
 
 var endpoint = new Uri("https://alonlecturedemo-resource.cognitiveservices.azure.com/");
 var credential = new DefaultAzureCredential();
-string deploymentName = "model-router";
+var deploymentName = "model-router";
 
 var solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
 var projectPath = Path.Combine(solutionRoot, "WinDiagMcpServer", "WinDiagMcpServer.csproj");
@@ -41,8 +40,8 @@ var mcpClient = await McpClient.CreateAsync(
 
 // List all available tools from the MCP server.
 Console.WriteLine("Available tools:");
-IList<McpClientTool> tools = await mcpClient.ListToolsAsync();
-foreach (McpClientTool tool in tools)
+var tools = await mcpClient.ListToolsAsync();
+foreach (var tool in tools)
 {
     Console.WriteLine($"{tool}");
 }
@@ -66,17 +65,10 @@ try
             var text = ((dynamic)content).Text;
             Console.WriteLine($"Tool output: {text}");
             
-            try 
+            try
             {
                 using var doc = JsonDocument.Parse(text);
-                if (doc.RootElement.TryGetProperty("resourceUri", out JsonElement uriProp))
-                {
-                    resourceUriString = uriProp.GetString();
-                }
-                else
-                {
-                    resourceUriString = text;
-                }
+                resourceUriString = doc.RootElement.TryGetProperty("resourceUri", out JsonElement uriProp) ? uriProp.GetString() : (string?)text;
             }
             catch
             {
@@ -125,7 +117,9 @@ catch (Exception ex)
     Console.WriteLine($"Failed to create snapshot: {ex.Message}");
 }
 
-/*
+Console.WriteLine();
+Console.WriteLine("================================================");
+
 // Create AI Agent with MCP tools (after status)
 AIAgent agent = new AzureOpenAIClient(endpoint, credential)
     .GetChatClient(deploymentName)
@@ -134,9 +128,9 @@ AIAgent agent = new AzureOpenAIClient(endpoint, credential)
                         You have access to Windows diagnostics tools through the MCP servers.
                         Be concise and helpful in your responses.",
         name: "ComputerAnalyzer",
-        tools: [.. tools.Cast<AITool>()]);
+        tools: [.. tools]);
 
-string prompt = "What is the system information?";
+var prompt = "What is the system information?";
 
 var agentResponse = await agent.RunAsync(prompt);
 
@@ -144,15 +138,15 @@ Console.WriteLine(agentResponse.Text);
 Console.WriteLine();
 Console.WriteLine("================================================");
 
-prompt = "Do not ask questions, just fullfil the following request: List the processes running on the system. Return the process list by process name groups, for example: Notpad.exe: 1515, 2048, 5001.";
+prompt = "Do not ask questions, just fulfill the following request: List the processes running on the system. Return the process list by process name groups, for example: Notepad.exe: 1515, 2048, 5001.";
 agentResponse = await agent.RunAsync(prompt);
 Console.WriteLine(agentResponse.Text);
 Console.WriteLine();
 Console.WriteLine("================================================");
 
-prompt = "Do not ask questions, just fullfil the following request: Get detailed information of the dotnet process that execute the WinDiagMcpServer. Provide all the information that you can get!";
+prompt = "Do not ask questions, just fulfill the following request: Get detailed information of the dotnet process that execute the WinDiagMcpServer. Provide all the information that you can get!";
 agentResponse = await agent.RunAsync(prompt);
 Console.WriteLine(agentResponse.Text);
-*/
+
 
 Console.WriteLine();
