@@ -74,6 +74,19 @@ The C# client demonstrates:
 
 See [CSHARP_CLIENT_GUIDE.md](docs/CSHARP_CLIENT_GUIDE.md) for detailed documentation.
 
+### 6. Prompting Event Log Snapshots (Milestone 3+)
+When using Claude/Desktop or another MCP-aware client, give the model explicit instructions so it can successfully call the `create_event_log_snapshot` tool and then fetch the resource:
+
+1. **Describe the goal clearly** – e.g., "Count Event Log service startup events (ID 6005) in the last 30 days from the System log."  
+2. **Specify the log and XPath** – include a valid Windows Event Log XPath filter such as:
+   ```
+   *[System[Provider[@Name='EventLog'] and EventID=6005 and TimeCreated[timediff(@SystemTime) <= 2592000000]]]
+   ```
+3. **Tell the model to read the resource** – after the tool returns a URI like `resource://eventlogs/{id}.json`, instruct it to call `resources.get` (or the client’s equivalent) and analyze the JSON payload.
+4. **Ask for summarized output** – request specific counts/time ranges so the LLM knows how to interpret the snapshot.
+
+Providing these steps in your prompt dramatically improves success rates, because the model understands both how to build a valid XPath query and how to consume the generated resource.
+
 ## The Tool
 
 ### `get_system_info`
@@ -154,4 +167,3 @@ MIT License
 
 - [MCP Specification](https://modelcontextprotocol.io/)
 - [MCP Inspector](https://github.com/modelcontextprotocol/inspector)
-- [Claude Desktop](https://claude.ai/download)

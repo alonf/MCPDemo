@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.Eventing.Reader;
 using System.Runtime.InteropServices;
 using ModelContextProtocol.Server;
 
@@ -9,7 +10,7 @@ namespace WinDiagMcpServer;
 /// MCP server tool type for Windows diagnostics operations.
 /// </summary>
 [McpServerToolType]
-public partial class WinDiagMcpServerToolType
+public partial class McpServerProcessToolType
 {
     /// <summary>
     /// Returns basic system information for diagnostics (machine name, OS, processors, framework).
@@ -31,16 +32,6 @@ public partial class WinDiagMcpServerToolType
             CurrentDirectory = Environment.CurrentDirectory,
             SystemUpTime = GetSystemUptime()
         };
-    }
-
-    /// <summary>
-    /// Gets the system uptime based on the tick count.
-    /// </summary>
-    /// <returns>A <see cref="TimeSpan"/> representing how long the system has been running.</returns>
-    private static TimeSpan GetSystemUptime()
-    {
-        long milliseconds = Environment.TickCount64;
-        return TimeSpan.FromMilliseconds(milliseconds);
     }
 
     [McpServerTool]
@@ -88,6 +79,16 @@ public partial class WinDiagMcpServerToolType
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Gets the system uptime based on the tick count.
+    /// </summary>
+    /// <returns>A <see cref="TimeSpan"/> representing how long the system has been running.</returns>
+    private static TimeSpan GetSystemUptime()
+    {
+        long milliseconds = Environment.TickCount64;
+        return TimeSpan.FromMilliseconds(milliseconds);
     }
 
     private ProcessesInfoResult GetProcesses(Func<Process[]> getProcessesFunc, int? pageNumber = null, int? pageSize = null)

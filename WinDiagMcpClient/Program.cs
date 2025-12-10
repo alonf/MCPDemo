@@ -46,6 +46,7 @@ foreach (McpClientTool tool in tools)
 }
 Console.WriteLine();
 
+
 // Create AI Agent with MCP tools (after status)
 AIAgent agent = new AzureOpenAIClient(endpoint, credential)
     .GetChatClient(deploymentName)
@@ -64,12 +65,14 @@ Console.WriteLine(agentResponse.Text);
 Console.WriteLine();
 Console.WriteLine("================================================");
 
-prompt = "List the processes running on the system. Return the process list by process name groups, for example: Notpad.exe: 1515, 2048, 5001.";
+prompt = "Do not ask questions, just fullfil the following request: List the processes running on the system. Return the process list by process name groups, for example: Notpad.exe: 1515, 2048, 5001.";
 agentResponse = await agent.RunAsync(prompt);
 Console.WriteLine(agentResponse.Text);
 Console.WriteLine();
 Console.WriteLine("================================================");
 
-prompt = "Get detailed information of the dotnet process that execute the WinDiagMcpServer. Provide all the information that you can get!";
+prompt = "Do not ask questions, just fullfil the following request: Get detailed information of the dotnet process that execute the WinDiagMcpServer. Provide all the information that you can get!";
 agentResponse = await agent.RunAsync(prompt);
 Console.WriteLine(agentResponse.Text);
+
+Console.WriteLine();

@@ -11,18 +11,51 @@ if (Environment.GetEnvironmentVariable("MCP_INSPECTOR") != "true")
 
 var builder = Host.CreateApplicationBuilder(args);
 
-// Reduce logging noise - only show warnings and errors
+var logLevel = ResolveLogLevel(Environment.GetEnvironmentVariable("MCP_LOG_LEVEL"));
+
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole(options =>
 {
-    options.LogToStandardErrorThreshold = LogLevel.Warning;
+    options.LogToStandardErrorThreshold = logLevel;
 });
-builder.Logging.SetMinimumLevel(LogLevel.Warning);
+builder.Logging.AddJsonConsole(options =>
+{
+    options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
+    options.UseUtcTimestamp = true;
+    options.IncludeScopes = true;
+    options.JsonWriterOptions = new System.Text.Json.JsonWriterOptions
+    {
+        Indented = false
+    };
+});
+builder.Logging.SetMinimumLevel(logLevel);
 
 builder.Services.AddMcpServer().
     WithStdioServerTransport().
-    WithToolsFromAssembly();
+    WithToolsFromAssembly().
+    WithResourcesFromAssembly().
+    WithPromptsFromAssembly();
 
 var app = builder.Build();
 
+var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("McpServer.Startup");
+
+startupLogger.LogInformation("WinDiag MCP Server started with log level {LogLevel}", logLevel);
+
 await app.RunAsync();
+
+static LogLevel ResolveLogLevel(string? configuredLevel)
+{
+    if (!string.IsNullOrWhiteSpace(configuredLevel) && Enum.TryParse<LogLevel>(configuredLevel, true, out var parsed))
+    {
+        return parsed;
+    }
+
+    var verboseProtocol = Environment.GetEnvironmentVariable("MCP_VERBOSE_PROTOCOL");
+    if (string.Equals(verboseProtocol, "true", StringComparison.OrdinalIgnoreCase))
+    {
+        return LogLevel.Debug;
+    }
+
+    return LogLevel.Information;
+}

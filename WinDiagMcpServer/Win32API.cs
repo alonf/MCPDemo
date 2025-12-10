@@ -19,6 +19,19 @@ internal static class Win32Api
 
     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
+    [Flags]
+    public enum SnapshotOptions : uint
+    {
+        HeapList = 0x00000001,
+        Process = 0x00000002,
+        Thread = 0x00000004,
+        Module = 0x00000008,
+        Module32 = 0x00000010,
+        Inherit = 0x80000000,
+        All = 0x0000001F,
+        NoHeaps = 0x40000000
+    }
+
     public static (uint GdiObjects, uint UserObjects) GetGuiResourcesCounts(Process process)
     {
         try
@@ -102,18 +115,7 @@ internal static class Win32Api
         public int Bottom;
     }
 
-    [Flags]
-    public enum SnapshotOptions : uint
-    {
-        HeapList = 0x00000001,
-        Process = 0x00000002,
-        Thread = 0x00000004,
-        Module = 0x00000008,
-        Module32 = 0x00000010,
-        Inherit = 0x80000000,
-        All = 0x0000001F,
-        NoHeaps = 0x40000000
-    }
+#pragma warning disable SA1202
 
     [StructLayout(LayoutKind.Sequential)]
     public struct ProcessEntry32
