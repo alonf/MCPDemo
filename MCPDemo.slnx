@@ -1,5 +1,4 @@
 <Solution>
   <Project Path="WinDiagMcpChat/WinDiagMcpChat.csproj" />
-  <Project Path="WinDiagMcpClient/WinDiagMcpClient.csproj" />
   <Project Path="WinDiagMcpServer/WinDiagMcpServer.csproj" />
 </Solution>
