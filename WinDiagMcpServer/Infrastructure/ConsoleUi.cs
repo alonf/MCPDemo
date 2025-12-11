@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace WinDiagMcpServer.Infrastructure;
 
 /// <summary>
@@ -16,7 +18,7 @@ public static class ConsoleUi
 
         try
         {
-            Console.OutputEncoding = System.Text.Encoding.UTF8;
+            Console.OutputEncoding = Encoding.UTF8;
 
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.Error.WriteLine("┌───────────────────────────────────────────────┐");

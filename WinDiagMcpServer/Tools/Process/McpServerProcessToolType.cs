@@ -1,6 +1,12 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using static ModelContextProtocol.Protocol.ElicitRequestParams;
 using DiagnosticsProcess = System.Diagnostics.Process;
 
 namespace WinDiagMcpServer.Tools.Process;
@@ -10,7 +16,7 @@ namespace WinDiagMcpServer.Tools.Process;
 /// </summary>
 // ReSharper disable UnusedMember.Global
 [McpServerToolType]
-public class McpServerProcessToolType
+public class McpServerProcessToolType(ILogger<McpServerProcessToolType> logger)
 {
     /// <summary>
     /// Returns basic system information for diagnostics (machine name, OS, processors, framework).
@@ -81,14 +87,201 @@ public class McpServerProcessToolType
         return result;
     }
 
-    /// <summary>
-    /// Gets the system uptime based on the tick count.
-    /// </summary>
-    /// <returns>A <see cref="TimeSpan"/> representing how long the system has been running.</returns>
+    [McpServerTool]
+    [Description("Terminates a running process after explicit confirmation from the user.")]
+    public async Task<KillProcessResult> KillProcessAsync(
+        McpServer server,
+        [Description("The process ID to terminate. If omitted, you will be asked to choose a process.")] int? processId = null,
+        [Description("Optional reason for terminating the process (for auditing in the response).")] string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (server.ClientCapabilities?.Elicitation?.Form is null)
+        {
+            throw new McpException(
+                "Client does not support elicitation. A client that can fulfill form elicitation is required for killProcess.");
+        }
+
+        ProcessCandidate? processDetails;
+
+        if (processId is null)
+        {
+            processDetails = await ElicitProcessSelectionAsync(server, cancellationToken);
+            if (processDetails is null)
+            {
+                return KillProcessResult.Cancelled("Process selection was cancelled by the user.");
+            }
+        }
+        else
+        {
+            processDetails = GetProcessCandidateById(processId.Value);
+            if (processDetails is null)
+            {
+                return KillProcessResult.NotFound(processId.Value);
+            }
+        }
+
+        var confirmed = await ElicitConfirmationAsync(server, processDetails, cancellationToken);
+        if (!confirmed)
+        {
+            return KillProcessResult.Cancelled("User declined to confirm the termination phrase.");
+        }
+
+        try
+        {
+            using var process = DiagnosticsProcess.GetProcessById(processDetails.ProcessId);
+            var processName = process.ProcessName;
+            logger.LogWarning(
+                "Terminating process {ProcessName} (PID {Pid}). Reason: {Reason}",
+                processName,
+                processDetails.ProcessId,
+                string.IsNullOrWhiteSpace(reason) ? "not provided" : reason);
+
+            process.Kill(true);
+            await WaitForExitAsync(process, TimeSpan.FromSeconds(5), cancellationToken);
+
+            return KillProcessResult.Success(processDetails.ProcessId, processName, reason);
+        }
+        catch (ArgumentException)
+        {
+            return KillProcessResult.NotFound(processDetails.ProcessId);
+        }
+        catch (Win32Exception ex)
+        {
+            return KillProcessResult.Failed(processDetails.ProcessId, processDetails.ProcessName, ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return KillProcessResult.Failed(processDetails.ProcessId, processDetails.ProcessName, ex.Message);
+        }
+    }
+
     private static TimeSpan GetSystemUptime()
     {
         var milliseconds = Environment.TickCount64;
         return TimeSpan.FromMilliseconds(milliseconds);
+    }
+
+    private static async Task WaitForExitAsync(DiagnosticsProcess process, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var start = DateTime.UtcNow;
+        while (!process.HasExited && DateTime.UtcNow - start < timeout)
+        {
+            await Task.Delay(100, cancellationToken);
+        }
+    }
+
+    private static string FormatCandidate(ProcessCandidate candidate)
+    {
+        return $"{candidate.ProcessName} (PID {candidate.ProcessId}) • CPU {candidate.CpuPercent:F1}% • RAM {FormatBytes(candidate.WorkingSet)}";
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] sizes = ["B", "KB", "MB", "GB", "TB"];
+        double len = bytes;
+        var order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len /= 1024;
+        }
+
+        return $"{len:0.0} {sizes[order]}";
+    }
+
+    private static ProcessCandidate? GetProcessCandidateById(int processId)
+    {
+        try
+        {
+            using var process = DiagnosticsProcess.GetProcessById(processId);
+            return new ProcessCandidate(
+                process.Id,
+                process.ProcessName,
+                process.WorkingSet64,
+                0);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<List<ProcessCandidate>> SampleTopCpuProcessesAsync(int take, CancellationToken cancellationToken)
+    {
+        const int sampleMilliseconds = 750;
+        var initial = CaptureSnapshot();
+
+        try
+        {
+            await Task.Delay(sampleMilliseconds, cancellationToken);
+        }
+        catch (TaskCanceledException)
+        {
+            return [];
+        }
+
+        var later = CaptureSnapshot();
+        var interval = TimeSpan.FromMilliseconds(sampleMilliseconds);
+        var processorCount = Math.Max(1, Environment.ProcessorCount);
+
+        var candidates = later.Values
+            .Where(sample => initial.TryGetValue(sample.ProcessId, out _))
+            .Select(sample =>
+            {
+                var previous = initial[sample.ProcessId];
+                var cpuDelta = sample.TotalProcessorTime - previous.TotalProcessorTime;
+                var cpuPercent = cpuDelta.TotalMilliseconds <= 0
+                    ? 0
+                    : cpuDelta.TotalMilliseconds / (interval.TotalMilliseconds * processorCount) * 100;
+                return new ProcessCandidate(
+                    sample.ProcessId,
+                    sample.ProcessName,
+                    sample.WorkingSet,
+                    Math.Round(cpuPercent, 1));
+            })
+            .Where(candidate => candidate.WorkingSet > 0)
+            .OrderByDescending(candidate => candidate.CpuPercent)
+            .ThenByDescending(candidate => candidate.WorkingSet)
+            .Take(take)
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            candidates = later.Values
+                .Select(sample => new ProcessCandidate(sample.ProcessId, sample.ProcessName, sample.WorkingSet, 0))
+                .OrderByDescending(candidate => candidate.WorkingSet)
+                .Take(take)
+                .ToList();
+        }
+
+        return candidates;
+
+        static Dictionary<int, ProcessSnapshot> CaptureSnapshot()
+        {
+            var snapshot = new Dictionary<int, ProcessSnapshot>();
+
+            foreach (var process in DiagnosticsProcess.GetProcesses())
+            {
+                try
+                {
+                    snapshot[process.Id] = new ProcessSnapshot(
+                        process.Id,
+                        process.ProcessName,
+                        process.WorkingSet64,
+                        process.TotalProcessorTime);
+                }
+                catch (Exception)
+                {
+                    // ignore processes that exit mid-snapshot
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+
+            return snapshot;
+        }
     }
 
     private ProcessesInfoResult GetProcesses(Func<DiagnosticsProcess[]> getProcessesFunc, int? pageNumber = null, int? pageSize = null)
@@ -235,4 +428,91 @@ public class McpServerProcessToolType
 
         return parentProcessId;
     }
+
+    private async Task<bool> ElicitConfirmationAsync(McpServer server, ProcessCandidate process, CancellationToken cancellationToken)
+    {
+        var confirmationPhrase = $"CONFIRM PID {process.ProcessId}";
+
+        var schema = new RequestSchema
+        {
+            Properties =
+            {
+                ["confirmation"] = new StringSchema
+                {
+                    Title = "Confirmation Phrase",
+                    Description = $"Type '{confirmationPhrase}' to confirm termination.",
+                    MinLength = confirmationPhrase.Length
+                }
+            }
+        };
+
+        var response = await server.ElicitAsync(
+            new ElicitRequestParams
+            {
+                Message = $"You are about to terminate {process.ProcessName} (PID {process.ProcessId}). This cannot be undone.",
+                RequestedSchema = schema
+            },
+            cancellationToken);
+
+        var provided = response.Content is not null &&
+                       response.Content.TryGetValue("confirmation", out var entry) &&
+                       entry.ValueKind == JsonValueKind.String
+            ? entry.GetString()
+            : null;
+
+        return response.Action == "accept" && string.Equals(provided, confirmationPhrase, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<ProcessCandidate?> ElicitProcessSelectionAsync(McpServer server, CancellationToken cancellationToken)
+    {
+        var candidates = await SampleTopCpuProcessesAsync(5, cancellationToken);
+        if (candidates.Count == 0)
+        {
+            throw new McpException("Unable to locate any running processes. Try again in a moment.");
+        }
+
+        var schema = new RequestSchema
+        {
+            Properties =
+            {
+                ["process"] = new TitledSingleSelectEnumSchema
+                {
+                    Title = "Process",
+                    Description = "Select the process you want to terminate.",
+                    OneOf = candidates
+                        .Select(candidate => new EnumSchemaOption
+                        {
+                            Const = candidate.ProcessId.ToString(CultureInfo.InvariantCulture),
+                            Title = FormatCandidate(candidate)
+                        })
+                        .ToArray()
+                }
+            }
+        };
+
+        var response = await server.ElicitAsync(
+            new ElicitRequestParams
+            {
+                Message = "Select one of the top CPU consumers to terminate. Only a handful are shown for safety.",
+                RequestedSchema = schema
+            },
+            cancellationToken);
+
+        if (response.Action != "accept" || response.Content is null ||
+            !response.Content.TryGetValue("process", out var selectedElement) || selectedElement.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        if (!int.TryParse(selectedElement.GetString(), out var pid))
+        {
+            return null;
+        }
+
+        return candidates.FirstOrDefault(c => c.ProcessId == pid) ?? GetProcessCandidateById(pid);
+    }
+
+    private sealed record ProcessCandidate(int ProcessId, string ProcessName, long WorkingSet, double CpuPercent);
+
+    private sealed record ProcessSnapshot(int ProcessId, string ProcessName, long WorkingSet, TimeSpan TotalProcessorTime);
 }

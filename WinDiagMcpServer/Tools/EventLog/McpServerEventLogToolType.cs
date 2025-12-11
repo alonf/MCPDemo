@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -46,7 +47,7 @@ public partial class McpServerEventLogToolType
         var requestId = Guid.NewGuid();
         _logger.LogInformation("EventLogSnapshot request {RequestId} started for {LogName} with query {XPathQuery}", requestId, logName, xPathQuery);
 
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var stopwatch = Stopwatch.StartNew();
 
         try
         {

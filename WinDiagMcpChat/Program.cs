@@ -1,11 +1,15 @@
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using OpenAI;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using OpenAI;
+using static ModelContextProtocol.Protocol.ElicitRequestParams;
 
 Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
 Console.WriteLine("║         Windows Diagnostics MCP Chat Client v1.0               ║");
@@ -25,7 +29,7 @@ var dotnetExecutable = Path.Combine(
     OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet");
 
 Console.WriteLine("Building MCP Server...");
-var buildProcess = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+var buildProcess = Process.Start(new ProcessStartInfo
 {
     FileName = dotnetExecutable,
     Arguments = $"build \"{projectPath}\"",
@@ -50,9 +54,9 @@ if (!File.Exists(serverExePath))
 }
 
 Console.WriteLine("Starting MCP Server...");
-var serverProcess = new System.Diagnostics.Process
+var serverProcess = new Process
 {
-    StartInfo = new System.Diagnostics.ProcessStartInfo
+    StartInfo = new ProcessStartInfo
     {
         FileName = serverExePath,
         Arguments = "--urls=http://localhost:5000",
@@ -73,11 +77,206 @@ AppDomain.CurrentDomain.ProcessExit += (_, _) => {
 Console.WriteLine("Waiting for server to start...");
 await Task.Delay(5000);
 
+async ValueTask<ElicitResult> HandleElicitationAsync(ElicitRequestParams? requestParams, CancellationToken token)
+{
+    await Task.CompletedTask;
+
+    if (requestParams?.RequestedSchema?.Properties is null || requestParams.RequestedSchema.Properties.Count == 0)
+    {
+        return new ElicitResult { Action = "reject" };
+    }
+
+    Console.WriteLine();
+    Console.WriteLine("══════════ HUMAN CONFIRMATION REQUIRED ══════════");
+    if (!string.IsNullOrWhiteSpace(requestParams.Message))
+    {
+        Console.WriteLine(requestParams.Message);
+    }
+
+    Console.WriteLine("Type 'cancel' anytime to abort the operation.");
+
+    var content = new Dictionary<string, JsonElement>();
+
+    foreach (var property in requestParams.RequestedSchema.Properties)
+    {
+        var value = PromptForValue(property.Key, property.Value, token);
+        if (value is null)
+        {
+            Console.WriteLine("[Elicitation] User cancelled input.");
+            return new ElicitResult { Action = "reject" };
+        }
+
+        content[property.Key] = value.Value;
+    }
+
+    Console.WriteLine("[Elicitation] Confirmation captured.");
+    return new ElicitResult { Action = "accept", Content = content };
+
+    JsonElement? PromptForValue(string propertyName, object schema, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            switch (schema)
+            {
+                case StringSchema stringSchema:
+                    Console.Write($"{stringSchema.Description ?? propertyName}: ");
+                    var stringInput = Console.ReadLine();
+                    if (IsCancelled(stringInput))
+                    {
+                        return null;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(stringInput))
+                    {
+                        return JsonSerializer.SerializeToElement(stringInput.Trim());
+                    }
+
+                    Console.WriteLine("A value is required. Type 'cancel' to abort.");
+                    break;
+
+                case BooleanSchema booleanSchema:
+                    Console.Write($"{booleanSchema.Description ?? propertyName} (y/n): ");
+                    var boolInput = Console.ReadLine();
+                    if (IsCancelled(boolInput))
+                    {
+                        return null;
+                    }
+
+                    if (TryParseBoolean(boolInput, out var boolResult))
+                    {
+                        return JsonSerializer.SerializeToElement(boolResult);
+                    }
+
+                    Console.WriteLine("Please respond with 'y' or 'n'.");
+                    break;
+
+                case NumberSchema numberSchema:
+                    Console.Write($"{numberSchema.Description ?? propertyName}: ");
+                    var numberInput = Console.ReadLine();
+                    if (IsCancelled(numberInput))
+                    {
+                        return null;
+                    }
+
+                    if (double.TryParse(numberInput, out var numericValue))
+                    {
+                        if (numberSchema.Type == "integer")
+                        {
+                            return JsonSerializer.SerializeToElement(Convert.ToInt32(numericValue));
+                        }
+
+                        return JsonSerializer.SerializeToElement(numericValue);
+                    }
+
+                    Console.WriteLine("Enter a numeric value (type 'cancel' to abort).");
+                    break;
+
+                case TitledSingleSelectEnumSchema titledEnumSchema:
+                    return PromptForEnum(propertyName, titledEnumSchema.OneOf.ToList(), cancellationToken);
+
+                case UntitledSingleSelectEnumSchema untitledEnumSchema:
+                    var options = untitledEnumSchema.Enum
+                        .Select(value => new EnumSchemaOption { Const = value, Title = value })
+                        .ToList();
+                    return PromptForEnum(propertyName, options, cancellationToken);
+
+                default:
+                    Console.WriteLine($"Unsupported schema type for '{propertyName}'. Rejecting.");
+                    return null;
+            }
+        }
+    }
+
+    JsonElement? PromptForEnum(string propertyName, IList<EnumSchemaOption> options, CancellationToken cancellationToken)
+    {
+        if (options.Count == 0)
+        {
+            Console.WriteLine($"No selectable options supplied for '{propertyName}'.");
+            return null;
+        }
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Console.WriteLine($"{propertyName} - choose one of the following:");
+            for (var i = 0; i < options.Count; i++)
+            {
+                var option = options[i];
+                Console.WriteLine($"  {i + 1}. {option.Title}");
+            }
+
+            Console.Write("Selection (number or value, 'cancel' to abort): ");
+            var selection = Console.ReadLine();
+            if (IsCancelled(selection))
+            {
+                return null;
+            }
+
+            if (int.TryParse(selection, out var choiceIndex) && choiceIndex > 0 && choiceIndex <= options.Count)
+            {
+                return JsonSerializer.SerializeToElement(options[choiceIndex - 1].Const);
+            }
+
+            var optionMatch = options.FirstOrDefault(opt => string.Equals(opt.Const, selection, StringComparison.OrdinalIgnoreCase));
+            if (optionMatch is not null)
+            {
+                return JsonSerializer.SerializeToElement(optionMatch.Const);
+            }
+
+            Console.WriteLine("Invalid selection. Please try again.");
+        }
+    }
+
+    static bool IsCancelled(string? input) => string.Equals(input?.Trim(), "cancel", StringComparison.OrdinalIgnoreCase);
+
+    static bool TryParseBoolean(string? input, out bool value)
+    {
+        if (bool.TryParse(input, out value))
+        {
+            return true;
+        }
+
+        if (string.Equals(input, "y", StringComparison.OrdinalIgnoreCase) || string.Equals(input, "yes", StringComparison.OrdinalIgnoreCase))
+        {
+            value = true;
+            return true;
+        }
+
+        if (string.Equals(input, "n", StringComparison.OrdinalIgnoreCase) || string.Equals(input, "no", StringComparison.OrdinalIgnoreCase))
+        {
+            value = false;
+            return true;
+        }
+
+        value = false;
+        return false;
+    }
+}
+
+var clientOptions = new McpClientOptions
+{
+    Capabilities = new ClientCapabilities
+    {
+        Elicitation = new ElicitationCapability
+        {
+            Form = new FormElicitationCapability()
+        }
+    },
+    Handlers = new McpClientHandlers
+    {
+        ElicitationHandler = HandleElicitationAsync
+    }
+};
+
 var mcpClient = await McpClient.CreateAsync(
     new HttpClientTransport(new HttpClientTransportOptions
     {
         Endpoint = new Uri("http://localhost:5000/sse?apiKey=secure-mcp-key")
-    }));
+    }),
+    clientOptions);
 
 Console.WriteLine("Fetching tools...");
 var mcpTools = await mcpClient.ListToolsAsync();
@@ -153,7 +352,7 @@ async Task<string> GetMcpPromptContentAsync(
         else
         {
             // Simple JSON -> dictionary parsing
-            argsDict = System.Text.Json.JsonSerializer
+            argsDict = JsonSerializer
                 .Deserialize<Dictionary<string, object?>>(argumentsJson)
                 ?? new Dictionary<string, object?>();
         }
@@ -161,7 +360,7 @@ async Task<string> GetMcpPromptContentAsync(
         var promptResult = await prompt.GetAsync(argsDict);
 
         // Build a formatted string from the prompt messages
-        var sb = new System.Text.StringBuilder();
+        var sb = new StringBuilder();
         sb.AppendLine($"[MCP PROMPT: {promptName}]");
         sb.AppendLine();
 
@@ -170,8 +369,8 @@ async Task<string> GetMcpPromptContentAsync(
             sb.AppendLine($"[{msg.Role}]");
             
             // Serialize the ContentBlock to get its content
-            var contentJson = System.Text.Json.JsonSerializer.Serialize(msg.Content);
-            var contentObj = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(contentJson);
+            var contentJson = JsonSerializer.Serialize(msg.Content);
+            var contentObj = JsonSerializer.Deserialize<JsonElement>(contentJson);
             
             if (contentObj.TryGetProperty("text", out var textElement))
             {

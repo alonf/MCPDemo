@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +17,7 @@ builder.Logging.AddJsonConsole(options =>
     options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
     options.UseUtcTimestamp = true;
     options.IncludeScopes = true;
-    options.JsonWriterOptions = new System.Text.Json.JsonWriterOptions
+    options.JsonWriterOptions = new JsonWriterOptions
     {
         Indented = false
     };
