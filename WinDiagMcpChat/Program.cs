@@ -24,19 +24,59 @@ var dotnetExecutable = Path.Combine(
     "dotnet",
     OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet");
 
-Console.WriteLine("Starting MCP Server...");
-var mcpClient = await McpClient.CreateAsync(
-    new StdioClientTransport(new()
+Console.WriteLine("Building MCP Server...");
+var buildProcess = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+{
+    FileName = dotnetExecutable,
+    Arguments = $"build \"{projectPath}\"",
+    UseShellExecute = false,
+    CreateNoWindow = true
+});
+if (buildProcess != null)
+{
+    await buildProcess.WaitForExitAsync();
+    if (buildProcess.ExitCode != 0)
     {
-        Command = dotnetExecutable,
-        Arguments =
-        [
-            "run",
-            "--project",
-            projectPath
-        ],
-        Name = "WinDiagMcpServer",
-        WorkingDirectory = Path.GetDirectoryName(projectPath) ?? solutionRoot
+        Console.WriteLine("Failed to build MCP Server.");
+        return;
+    }
+}
+
+var serverExePath = Path.Combine(Path.GetDirectoryName(projectPath)!, "bin", "Debug", "net10.0-windows", "WinDiagMcpServer.exe");
+if (!File.Exists(serverExePath))
+{
+    Console.WriteLine($"Server executable not found at: {serverExePath}");
+    return;
+}
+
+Console.WriteLine("Starting MCP Server...");
+var serverProcess = new System.Diagnostics.Process
+{
+    StartInfo = new System.Diagnostics.ProcessStartInfo
+    {
+        FileName = serverExePath,
+        Arguments = "--urls=http://localhost:5000",
+        WorkingDirectory = Path.GetDirectoryName(projectPath) ?? solutionRoot,
+        UseShellExecute = true,
+        CreateNoWindow = false
+    }
+};
+serverProcess.Start();
+
+AppDomain.CurrentDomain.ProcessExit += (_, _) => {
+    if (!serverProcess.HasExited)
+    {
+        serverProcess.Kill();
+    }
+};
+
+Console.WriteLine("Waiting for server to start...");
+await Task.Delay(5000);
+
+var mcpClient = await McpClient.CreateAsync(
+    new HttpClientTransport(new HttpClientTransportOptions
+    {
+        Endpoint = new Uri("http://localhost:5000/sse?apiKey=secure-mcp-key")
     }));
 
 Console.WriteLine("Fetching tools...");

@@ -18,7 +18,9 @@ mcp-inspector --version
 
 ## Using MCP Inspector with WinDiag Server
 
-### Method 1: Direct Launch (Recommended)
+**Note:** The WinDiag Server now uses **HTTP/SSE transport**. The instructions below for Stdio transport (`dotnet run`) may need adjustment or a bridge to work with the HTTP server.
+
+### Method 1: Direct Launch (Stdio - Legacy)
 
 ```powershell
 # Navigate to your project root
@@ -28,13 +30,17 @@ cd C:\Dev\MCPDemo
 mcp-inspector dotnet run --project WinDiagMcpServer\WinDiagMcpServer.csproj
 ```
 
-This will:
-1. Start your .NET MCP server
-2. Launch MCP Inspector
-3. Open a browser with the Inspector UI
-4. Connect automatically to your server
+### Method 2: HTTP Connection (New)
 
-### Method 2: Using Server Config
+If the inspector supports HTTP/SSE connections:
+
+1. Start the server:
+   ```powershell
+   dotnet run --project WinDiagMcpServer\WinDiagMcpServer.csproj -- --urls=http://localhost:5000
+   ```
+2. Connect the inspector to `http://localhost:5000/sse?apiKey=secure-mcp-key`
+
+### Method 3: Using Server Config
 
 ```powershell
 # If you have server_config.json
@@ -232,14 +238,14 @@ dotnet build
 
 ## Comparison with Other Tools
 
-| Feature | mcp-cli | MCP Inspector | Claude Desktop |
-|---------|---------|---------------|----------------|
-| Visual UI | ❌ No | ✅ Yes | ✅ Yes |
-| Tool Execution | ✅ Yes | ✅ Yes | ✅ Yes |
-| Schema Viewing | ❌ No | ✅ Yes | ❌ No |
-| Message Logs | ❌ No | ✅ Yes | ❌ No |
-| LLM Integration | ⚠️ Broken | ❌ No | ✅ Yes |
-| Development Focus | ✅ Yes | ✅ Yes | ❌ No |
+| Feature | mcp-cli | MCP Inspector |
+|---------|---------|---------------|
+| Visual UI | ❌ No | ✅ Yes |
+| Tool Execution | ✅ Yes | ✅ Yes |
+| Schema Viewing | ❌ No | ✅ Yes |
+| Message Logs | ❌ No | ✅ Yes |
+| LLM Integration | ⚠️ Broken | ❌ No |
+| Development Focus | ✅ Yes | ✅ Yes |
 
 ## Best Practices
 

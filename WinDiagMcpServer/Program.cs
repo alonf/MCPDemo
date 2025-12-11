@@ -1,18 +1,16 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 ConsoleUi.RenderBanner();
 
-var builder = Host.CreateApplicationBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 var logLevel = ResolveLogLevel(Environment.GetEnvironmentVariable("MCP_LOG_LEVEL"));
 
 builder.Logging.ClearProviders();
-builder.Logging.AddConsole(options =>
-{
-    options.LogToStandardErrorThreshold = logLevel;
-});
+builder.Logging.AddConsole();
 builder.Logging.AddJsonConsole(options =>
 {
     options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
@@ -29,18 +27,43 @@ builder.Logging.SetMinimumLevel(logLevel);
 builder.Services.AddSingleton<IEventLogSnapshotStorage, EventLogSnapshotStorage>();
 
 builder.Services.AddMcpServer().
-    WithStdioServerTransport().
+    WithHttpTransport().
     WithToolsFromAssembly().
     WithResourcesFromAssembly().
     WithPromptsFromAssembly();
 
 var app = builder.Build();
 
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/sse") || context.Request.Path.StartsWithSegments("/messages"))
+    {
+        var apiKey = context.Request.Query["apiKey"].FirstOrDefault()
+                     ?? context.Request.Headers["X-API-Key"].FirstOrDefault();
+
+        if (string.IsNullOrEmpty(apiKey) || apiKey != "secure-mcp-key")
+        {
+            context.Response.StatusCode = 401;
+            await context.Response.WriteAsync("Unauthorized");
+            return;
+        }
+    }
+
+    await next();
+});
+
+app.MapMcp();
+
 var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("McpServer.Startup");
 
-startupLogger.LogInformation("WinDiag MCP Server started with log level: {LogLevel}", logLevel);
+#pragma warning disable S6668 // Logging arguments should be passed to the correct parameter
+startupLogger.LogInformation("WinDiag MCP Server started with log level: {ConfiguredLogLevel}", logLevel);
+#pragma warning restore S6668 // Logging arguments should be passed to the correct parameter
 
-await app.RunAsync();
+#pragma warning disable S1075 // Refactor your code not to use hardcoded absolute paths or URIs
+var url = "http://localhost:5000";
+#pragma warning restore S1075 // Refactor your code not to use hardcoded absolute paths or URIs
+await app.RunAsync(url);
 
 static LogLevel ResolveLogLevel(string? configuredLevel)
 {

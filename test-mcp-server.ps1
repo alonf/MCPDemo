@@ -35,58 +35,72 @@ Write-Host "      Build successful!" -ForegroundColor Green
 Write-Host ""
 
 # Test 2: Connectivity
-Write-Host "[2/4] Testing server connectivity..." -ForegroundColor White
-$pingResult = mcp-cli ping --server windiag --config-file server_config.json 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "      Server not responding" -ForegroundColor Red
-    Write-Host "      Check server_config.json configuration" -ForegroundColor Yellow
-    pause
+Write-Host "[2/4] Starting server and testing connectivity..." -ForegroundColor White
+
+# Start server in background
+$serverProcess = Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "WinDiagMcpServer/WinDiagMcpServer.csproj", "--", "--urls=http://localhost:5000" -PassThru -WindowStyle Minimized
+Write-Host "      Waiting for server to initialize..." -ForegroundColor Gray
+Start-Sleep -Seconds 5
+
+try {
+    $pingResult = mcp-cli ping --server windiag --config-file server_config.json 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "      Server not responding" -ForegroundColor Red
+        Write-Host "      Check server_config.json configuration" -ForegroundColor Yellow
+        throw "Server connection failed"
+    }
+    Write-Host "      Server is responding!" -ForegroundColor Green
+    Write-Host ""
+
+    # Test 3: Tool Discovery
+    Write-Host "[3/4] Discovering tools..." -ForegroundColor White
+    $toolsResult = mcp-cli tools --server windiag --config-file server_config.json 2>&1
+    if ($toolsResult -notmatch "system_info") {
+        Write-Host "      get_system_info tool not found" -ForegroundColor Red
+        throw "Tool listing failed"
+    }
+    Write-Host "      Tools discovered successfully!" -ForegroundColor Green
+    Write-Host ""
+
+    # Test 4: Tool Execution
+    Write-Host "[4/4] Executing get_system_info tool..." -ForegroundColor White
+    Write-Host ""
+    $cmdResult = mcp-cli cmd --server windiag --config-file server_config.json --tool get_system_info 2>&1
+
+    # Parse and display the result
+    if ($cmdResult -match '"isError"\s*:\s*false') {
+        Write-Host $cmdResult -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "============================================" -ForegroundColor Cyan
+        Write-Host "All tests passed! ✓" -ForegroundColor Green
+        Write-Host "============================================" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "Your MCP server is working correctly." -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Next steps:" -ForegroundColor White
+        Write-Host "  - Use MCP Inspector for interactive testing" -ForegroundColor Gray
+        Write-Host "    .\launch-inspector.ps1" -ForegroundColor DarkGray
+        Write-Host ""
+        Write-Host "  - Use the AI Chat Client" -ForegroundColor Gray
+        Write-Host "    cd WinDiagMcpChat; dotnet run" -ForegroundColor DarkGray
+        Write-Host ""
+        Write-Host "  - See docs\MCP_TESTING_GUIDE.md for details" -ForegroundColor Gray
+        Write-Host ""
+    } else {
+        Write-Host "      Tool execution failed" -ForegroundColor Red
+        Write-Host $cmdResult -ForegroundColor Red
+        throw "Tool execution failed"
+    }
+}
+catch {
+    Write-Host "Test failed: $_" -ForegroundColor Red
     exit 1
 }
-Write-Host "      Server is responding!" -ForegroundColor Green
-Write-Host ""
-
-# Test 3: Tool Discovery
-Write-Host "[3/4] Discovering tools..." -ForegroundColor White
-$toolsResult = mcp-cli tools --server windiag --config-file server_config.json 2>&1
-if ($toolsResult -notmatch "system_info") {
-    Write-Host "      get_system_info tool not found" -ForegroundColor Red
-    pause
-    exit 1
-}
-Write-Host "      Tools discovered successfully!" -ForegroundColor Green
-Write-Host ""
-
-# Test 4: Tool Execution
-Write-Host "[4/4] Executing get_system_info tool..." -ForegroundColor White
-Write-Host ""
-$cmdResult = mcp-cli cmd --server windiag --config-file server_config.json --tool get_system_info 2>&1
-
-# Parse and display the result
-if ($cmdResult -match '"isError"\s*:\s*false') {
-    Write-Host $cmdResult -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "============================================" -ForegroundColor Cyan
-    Write-Host "All tests passed! ✓" -ForegroundColor Green
-    Write-Host "============================================" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Your MCP server is working correctly." -ForegroundColor Green
-    Write-Host ""
-    Write-Host "Next steps:" -ForegroundColor White
-    Write-Host "  - Use MCP Inspector for interactive testing" -ForegroundColor Gray
-    Write-Host "    npm install -g @modelcontextprotocol/inspector" -ForegroundColor DarkGray
-    Write-Host "    mcp-inspector dotnet run --project WinDiagMcpServer/WinDiagMcpServer.csproj" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "  - Use Claude Desktop for LLM integration" -ForegroundColor Gray
-    Write-Host "    https://claude.ai/download" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "  - See docs\MCP_TESTING_GUIDE.md for details" -ForegroundColor Gray
-    Write-Host ""
-} else {
-    Write-Host "      Tool execution failed" -ForegroundColor Red
-    Write-Host $cmdResult -ForegroundColor Red
-    pause
-    exit 1
+finally {
+    if ($serverProcess -and -not $serverProcess.HasExited) {
+        Write-Host "Stopping MCP Server..." -ForegroundColor Yellow
+        Stop-Process -Id $serverProcess.Id -Force
+    }
 }
 
 pause

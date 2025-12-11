@@ -1,10 +1,10 @@
 {
   "servers": {
     "windiag": {
-      "command": "dotnet",
-      "args": [
-        "c:/Dev/MCPDemo/WinDiagMcpServer/bin/Debug/net10.0-windows/WinDiagMcpServer.dll"
-      ]
+      "url": "http://localhost:5000/sse",
+      "headers": {
+        "X-API-Key": "secure-mcp-key"
+      }
     }
   }
 }

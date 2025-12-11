@@ -2,40 +2,11 @@
 
 This guide shows you how to configure Claude Desktop to use the WinDiag MCP Server.
 
-## Quick Setup (Automated) ⭐ Recommended
+## Quick Setup
 
-The automated scripts will **install Claude Desktop** (if needed) and configure it for you!
+**Note:** The WinDiag MCP Server has been updated to use **HTTP/SSE transport** with API Key authentication. The previous automated setup scripts configured Stdio transport and are currently **not compatible** with the HTTP-only server.
 
-### Windows
-```powershell
-.\setup-claude-desktop.ps1
-```
-
-**What it does:**
-- ✅ Installs Claude Desktop using `winget` (if not already installed)
-- ✅ Builds the WinDiag MCP Server
-- ✅ Configures Claude Desktop to use the server
-- ✅ Creates backup of existing configuration
-- ✅ Checks if restart is needed
-
-### macOS
-```bash
-./setup-claude-desktop.sh
-```
-
-**What it does:**
-- ✅ Installs Claude Desktop using Homebrew (if not already installed)
-- ✅ Builds the WinDiag MCP Server
-- ✅ Configures Claude Desktop to use the server
-- ✅ Creates backup of existing configuration
-- ✅ Checks if restart is needed
-
-### Linux
-```bash
-./setup-claude-desktop.sh
-```
-
-**Note:** On Linux, you'll need to install Claude Desktop manually from https://claude.ai/download, then run the script to configure it.
+Please follow the **Manual Configuration** steps below to set up Claude Desktop with the HTTP server.
 
 ---
 
@@ -98,23 +69,28 @@ Open the configuration file and add:
 {
   "mcpServers": {
     "windiag": {
-      "command": "dotnet",
-      "args": [
-        "run",
-        "--project",
-        "C:/Dev/MCPDemo/WinDiagMcpServer/WinDiagMcpServer.csproj"
-      ]
+      "url": "http://localhost:5000/sse?apiKey=secure-mcp-key"
     }
   }
 }
 ```
 
-**Important:** 
-- Use **forward slashes** (`/`) in the path, even on Windows
-- Use the **absolute path** to your project
-- If you have existing `mcpServers`, add `windiag` to the existing object
+### Step 3: Run the Server
 
-### Step 3: Restart Claude Desktop
+Since the server uses HTTP transport, you must run it manually before using Claude Desktop.
+
+1. Open a terminal.
+2. Navigate to the server directory:
+   ```powershell
+   cd C:\Dev\MCPDemo\WinDiagMcpServer
+   ```
+3. Run the server:
+   ```powershell
+   dotnet run --urls=http://localhost:5000
+   ```
+4. Keep this terminal window open while using Claude Desktop.
+
+### Step 4: Restart Claude Desktop
 
 Completely close and reopen Claude Desktop for the changes to take effect.
 

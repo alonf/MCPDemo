@@ -5,7 +5,9 @@ An interactive console chat client that demonstrates MCP client implementation u
 ## Overview
 
 **WinDiagMcpChat** is a .NET 10 console application that:
-- ✅ Connects to the WinDiagMcpServer via STDIO transport
+- ✅ Connects to the WinDiagMcpServer via **HTTP/SSE transport**
+- ✅ Automatically launches the server in a separate console window
+- ✅ Authenticates using a secure API Key
 - ✅ Automatically discovers MCP tools, resources, and prompts
 - ✅ Uses Azure OpenAI for conversational AI
 - ✅ Implements client-side tools for reading resources and prompts
@@ -42,16 +44,17 @@ An interactive console chat client that demonstrates MCP client implementation u
 
 ## Features
 
-### 1. Automatic Tool Discovery
+### 1. Automatic Server Management
 
 At startup, the client:
-- Starts the WinDiagMcpServer process
+- Builds the WinDiagMcpServer project
+- Launches the server in a new console window (listening on `http://localhost:5000`)
+- Connects to the server using the configured API Key
 - Lists all available tools from the server
-- Converts MCP tools to AI function format
-- Registers them with the AI agent
 
 **Console Output:**
 ```
+Building MCP Server...
 Starting MCP Server...
 Fetching tools...
 Fetching prompts...

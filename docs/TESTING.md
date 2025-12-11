@@ -40,30 +40,19 @@ npm install -g @modelcontextprotocol/inspector
 
 **Perfect for**: Development, debugging, learning MCP
 
-### 3. HTTP/REST (Direct Protocol) 🔧
+### 3. HTTP/SSE (Direct Protocol) 🔧
 
-Test the JSON-RPC protocol directly:
+Test the HTTP/SSE protocol directly:
 
 ```powershell
 # Start server manually
-dotnet run --project WinDiagMcpServer/WinDiagMcpServer.csproj
+dotnet run --project WinDiagMcpServer/WinDiagMcpServer.csproj -- --urls=http://localhost:5000
 
-# In another terminal, test with PowerShell
-$request = @{
-    jsonrpc = "2.0"
-    method = "tools/call"
-    params = @{
-        name = "get_system_info"
-        arguments = @{}
-    }
-    id = 1
-} | ConvertTo-Json
-
-# Send to server (requires HTTP transport - not in this demo)
-# This demo uses STDIO transport
+# In another terminal, use curl or similar to connect to SSE endpoint
+curl "http://localhost:5000/sse?apiKey=secure-mcp-key"
 ```
 
-**Perfect for**: Understanding the protocol, debugging
+**Perfect for**: Understanding the protocol, debugging, remote access
 
 ## Comparison
 
@@ -71,7 +60,7 @@ $request = @{
 |--------|-------|-----------|-----------|----------|
 | **mcp-cli** | ⭐ Easy | ❌ No | ❌ No | Quick tests |
 | **Inspector** | ⭐⭐ Medium | ✅ Yes | ✅ Yes | Learning |
-| **HTTP/REST** | ⭐⭐ Medium | ❌ No | ❌ No | Protocol study |
+| **HTTP/SSE** | ⭐⭐ Medium | ❌ No | ✅ Yes | Protocol study |
 
 ## Automated Testing
 

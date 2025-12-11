@@ -126,7 +126,6 @@ You can reuse the "single demo that evolves" idea, just specialized to diagnosti
 **Implemented:**
 - ✅ `get_system_info` tool
 - ✅ STDIO transport
-- ✅ Claude Desktop integration
 - ✅ MCP Inspector testing
 
 ---
@@ -198,7 +197,7 @@ Teaching points:
 
 ---
 
-### Milestone 4 – Move to HTTP + security
+### Milestone 4 – Move to HTTP + security ✅ COMPLETE
 
 * Convert server to **ASP.NET Core** with **HTTP streaming** transport.
 * Add bearer token check (simple demo token).
@@ -209,6 +208,13 @@ Teaching points:
 * Remote MCP server.
 * Basic auth/authorization.
 * Path from local tooling to enterprise deployment.
+
+**Implemented:**
+- ✅ Converted `WinDiagMcpServer` to ASP.NET Core
+- ✅ Implemented HTTP/SSE transport
+- ✅ Added API Key authentication middleware
+- ✅ Updated `WinDiagMcpChat` to use `HttpClientTransport`
+- ✅ Configured `WinDiagMcpChat` to launch server in separate window
 
 ---
 

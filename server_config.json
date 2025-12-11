@@ -1,13 +1,7 @@
 {
   "mcpServers": {
     "windiag": {
-      "command": "dotnet",
-      "args": [
-        "run",
-        "--project",
-        "WinDiagMcpServer/WinDiagMcpServer.csproj"
-      ],
-      "env": {}
+      "url": "http://localhost:5000/sse?apiKey=secure-mcp-key"
     }
   }
 }

@@ -12,7 +12,6 @@ This is a **production-ready MCP server** with:
 - ✅ STDIO transport (standard input/output)
 - ✅ .NET 10 implementation
 - ✅ Multiple testing methods
-- ✅ Claude Desktop integration
 - ✅ C# MCP client implementation
 
 Perfect for learning MCP concepts and building AI-powered diagnostics!
@@ -48,20 +47,7 @@ Then in the browser:
 3. Test tools and view resources
 4. Try MCP prompts for diagnostic workflows
 
-### 4. Test with Claude Desktop (LLM Integration) ⭐ Recommended
-```powershell
-# Automated setup
-.\setup-claude-desktop.ps1
-```
-
-Then in Claude Desktop:
-1. Restart Claude Desktop
-2. Ask: "What tools do you have access to?"
-3. Ask: "What is my system information?"
-4. Ask: "Do a system health check" (uses MCP prompts!)
-5. Claude uses the MCP server to provide comprehensive diagnostics!
-
-### 5. Use the AI Chat Client
+### 4. Use the AI Chat Client
 ```powershell
 cd WinDiagMcpChat
 dotnet run
@@ -72,8 +58,6 @@ Interactive diagnostics with:
 - Automatic prompt discovery
 - AI-guided workflows
 - Resource pagination handling
-
-See [CLAUDE_DESKTOP_SETUP.md](docs/CLAUDE_DESKTOP_SETUP.md) for detailed instructions.
 
 ## The Tools
 
