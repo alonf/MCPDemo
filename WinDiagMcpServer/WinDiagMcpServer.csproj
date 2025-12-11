@@ -38,8 +38,4 @@
     <None Include="..\README.md" Link="README.md" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Prompts\EventLog\" />
-  </ItemGroup>
-
 </Project>

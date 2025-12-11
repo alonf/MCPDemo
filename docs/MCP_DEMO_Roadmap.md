@@ -1,6 +1,6 @@
 ## 1. How diagnostics maps to MCP concepts
 
-Think in terms of one **“System Diagnostics MCP Server”** running on the local machine (C#/.NET 10 is a perfect fit):
+Think in terms of one **"System Diagnostics MCP Server"** running on the local machine (C#/.NET 10 is a perfect fit):
 
 ### Tools (active operations)
 
@@ -79,7 +79,7 @@ Define:
 Teaching value:
 
 * Demonstrates how a client can **sandbox** what the MCP server may access.
-* Excellent illustration of MCP's safety model: *client defines what’s visible*.
+* Excellent illustration of MCP's safety model: *client defines what's visible*.
 
 ---
 
@@ -90,7 +90,7 @@ Teaching value:
 * Tool `killProcess(pid)` is called without `pid` → server asks the client to elicit a process selection from the user.
 * Tool `queryEventLog(logName, since)` → if `since` is missing, server uses elicitation to ask:
 
-  > “From when do you want me to collect events? Last hour / 24 hours / custom?”
+  > "From when do you want me to collect events? Last hour / 24 hours / custom?"
 
 **Sampling** examples:
 
@@ -99,7 +99,7 @@ Teaching value:
   1. Collects process, event log, and WMI data.
   2. Calls **sampling** to ask the LLM:
 
-     * “Given these resources, produce a human-readable diagnostic report with recommendations.”
+     * "Given these resources, produce a human-readable diagnostic report with recommendations."
   3. Returns the report to the user.
 
 Here you get to show:
@@ -111,9 +111,9 @@ Here you get to show:
 
 ## 2. Suggested single-evolving-demo plan (diagnostics edition)
 
-You can reuse the “single demo that evolves” idea, just specialized to diagnostics.
+You can reuse the "single demo that evolves" idea, just specialized to diagnostics.
 
-### Milestone 1 – Minimal diagnostics tool (STDIO)
+### Milestone 1 – Minimal diagnostics tool (STDIO) ✅ COMPLETE
 
 * MCP server over stdio.
 * Tool: `getSystemInfo()`
@@ -123,9 +123,15 @@ You can reuse the “single demo that evolves” idea, just specialized to diagn
   * tool list,
   * single call & response.
 
+**Implemented:**
+- ✅ `get_system_info` tool
+- ✅ STDIO transport
+- ✅ Claude Desktop integration
+- ✅ MCP Inspector testing
+
 ---
 
-### Milestone 2 – Process inspection
+### Milestone 2 – Process inspection ✅ COMPLETE
 
 * Add tools:
 
@@ -139,9 +145,14 @@ Teaching points:
 * Handling large result sets (paging, filtering).
 * Difference between lightweight summaries and detailed lookups.
 
+**Implemented:**
+- ✅ `get_all_processes` tool - Lists all processes with CPU, memory, threads, handles
+- ✅ `get_process_info` tool - Detailed process information by PID
+- ✅ Comprehensive process metrics (working set, private bytes, virtual memory, etc.)
+
 ---
 
-### Milestone 3 – Event log analysis (Resources)
+### Milestone 3 – Event log analysis (Resources & Prompts) ✅ COMPLETE
 
 * Tool: `snapshotEventLog(logName, hoursBack)`
 
@@ -156,6 +167,34 @@ Teaching points:
 * Separation: **collect** vs **analyze**.
 * Read-only resource semantics.
 * Prompts that consume resource URIs.
+
+**Implemented:**
+- ✅ `create_event_log_snapshot` tool - Creates event log snapshots with XPath filtering
+- ✅ Event log resources: `eventlog://snapshot/{id}` with pagination support
+- ✅ Resource pagination with query parameters (limit, offset)
+- ✅ In-memory snapshot storage
+- ✅ **MCP Prompts**:
+  - ✅ `AnalyzeRecentApplicationErrors` - Event log error analysis
+  - ✅ `ExplainHighCpu` - CPU usage investigation
+  - ✅ `DetectSecurityAnomalies` - Security anomaly detection (requires elevation)
+  - ✅ `DiagnoseSystemHealth` - Comprehensive health check without elevation ⭐
+- ✅ **AI Chat Client (WinDiagMcpChat)**:
+  - ✅ Azure OpenAI integration
+  - ✅ Automatic prompt discovery
+  - ✅ Prompt retrieval tool (`get_prompt`)
+  - ✅ Resource reading tool (`read_resource`)
+  - ✅ Pagination handling
+  - ✅ Conversation history
+
+**Additional Teaching Points Covered:**
+- Tool-Resource separation pattern
+- MCP Prompts as AI workflow templates
+- Parameterized prompts
+- Client-side tool for reading resources
+- Client-side tool for retrieving prompts
+- AI agent using prompts to guide diagnostic workflows
+- Handling large data sets with pagination
+- Cross-tool correlation (processes + event logs)
 
 ---
 
@@ -179,7 +218,7 @@ Teaching points:
 * If `pid` is missing:
 
   * Use elicitation to present a list of top CPU processes and let user pick.
-* Require confirmation (e.g. user types “YES” or selects “Confirm”).
+* Require confirmation (e.g. user types "YES" or selects "Confirm").
 
 Teaching points:
 
@@ -202,7 +241,7 @@ Teaching points:
      * Maybe `getDiskUsage()`
   2. Calls **sampling** on the client:
 
-     * Prompt: “Generate a diagnostic report from the following resources.”
+     * Prompt: "Generate a diagnostic report from the following resources."
   3. Returns a structured report: summary, potential issues, suggested actions.
 
 Teaching points:
@@ -231,7 +270,7 @@ Teaching points:
 
 ## 3. Safety & practicality notes
 
-Because this is **system-level access**, I’d strongly recommend:
+Because this is **system-level access**, I'd strongly recommend:
 
 1. **Read-only first**
 
@@ -242,13 +281,13 @@ Because this is **system-level access**, I’d strongly recommend:
 
    * For any destructive tool (kill, registry write), always:
 
-     * require explicit user confirmation (e.g. “YES, KILL PID 1234”),
+     * require explicit user confirmation (e.g. "YES, KILL PID 1234"),
      * show how this is enforced in code.
 
 3. **Demo machine**
 
    * Run these on a clean demo VM or non-critical machine.
-   * That’s also a good story point about *blast radius*.
+   * That's also a good story point about *blast radius*.
 
 These constraints themselves become **excellent teaching content** about how to responsibly use MCP when tools are powerful.
 

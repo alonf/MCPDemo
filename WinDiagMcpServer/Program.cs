@@ -1,8 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using WinDiagMcpServer.Infrastructure;
-using WinDiagMcpServer.Resources.EventLog;
 
 ConsoleUi.RenderBanner();
 
@@ -40,7 +38,7 @@ var app = builder.Build();
 
 var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("McpServer.Startup");
 
-startupLogger.LogInformation("WinDiag MCP Server started with log level {Level}", logLevel);
+startupLogger.LogInformation("WinDiag MCP Server started with log level: {LogLevel}", logLevel);
 
 await app.RunAsync();
 

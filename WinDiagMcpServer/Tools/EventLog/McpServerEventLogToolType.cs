@@ -3,7 +3,6 @@ using System.Diagnostics.Eventing.Reader;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
-using WinDiagMcpServer.Resources.EventLog;
 
 namespace WinDiagMcpServer.Tools.EventLog;
 
@@ -37,6 +36,7 @@ public partial class McpServerEventLogToolType
     /// <param name="logName">The name of the event log to query.</param>
     /// <param name="xPathQuery">The XPath query string used to filter events.</param>
     /// <returns>The resource URI of the created snapshot or an error message if validation fails.</returns>
+    // ReSharper disable UnusedMember.Global
     [McpServerTool]
     [Description("Take a snapshot of the event log, and create a resource. Return the resource URI")]
     public partial string CreateEventLogSnapshot(
