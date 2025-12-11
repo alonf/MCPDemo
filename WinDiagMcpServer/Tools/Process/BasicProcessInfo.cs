@@ -1,4 +1,4 @@
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Tools.Process;
 
 public sealed record BasicProcessInfo
 {

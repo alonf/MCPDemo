@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Resources.EventLog;
 
 /// <summary>
 /// Default implementation of event log snapshot storage using a concurrent dictionary.

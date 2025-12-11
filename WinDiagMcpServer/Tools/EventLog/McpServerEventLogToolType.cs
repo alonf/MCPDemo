@@ -3,8 +3,9 @@ using System.Diagnostics.Eventing.Reader;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
+using WinDiagMcpServer.Resources.EventLog;
 
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Tools.EventLog;
 
 /// <summary>
 /// Provides tools for capturing diagnostics data from Windows event logs.

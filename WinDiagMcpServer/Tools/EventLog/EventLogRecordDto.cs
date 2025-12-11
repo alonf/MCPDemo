@@ -1,9 +1,10 @@
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Tools.EventLog;
 
 public partial class McpServerEventLogToolType
 {
     private sealed record EventLogRecordDto
     {
+        // ReSharper disable UnusedAutoPropertyAccessor.Local
         public long? RecordId { get; init; }
 
         public string? ProviderName { get; init; }

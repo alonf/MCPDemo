@@ -1,19 +1,19 @@
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Resources.EventLog;
 
+// ReSharper disable UnusedMember.Global
 [McpServerResourceType]
-public partial class McpServerEventLogResourceType
+public class McpServerEventLogResourceType
 {
     private readonly ILogger<McpServerEventLogResourceType> _logger;
     private readonly IEventLogSnapshotStorage _snapshotStorage;
 
+#pragma warning disable IDE0290
     public McpServerEventLogResourceType(
         ILogger<McpServerEventLogResourceType> logger,
         IEventLogSnapshotStorage snapshotStorage)
@@ -21,6 +21,7 @@ public partial class McpServerEventLogResourceType
         _logger = logger;
         _snapshotStorage = snapshotStorage;
     }
+#pragma warning restore IDE0290
 
     /// <summary>
     /// Retrieves the JSON content of a requested event log snapshot resource.

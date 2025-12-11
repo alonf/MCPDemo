@@ -1,16 +1,16 @@
 using System.ComponentModel;
-using System.Diagnostics;
-using System.Diagnostics.Eventing.Reader;
 using System.Runtime.InteropServices;
 using ModelContextProtocol.Server;
+using DiagnosticsProcess = System.Diagnostics.Process;
 
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Tools.Process;
 
 /// <summary>
 /// MCP server tool type for Windows diagnostics operations.
 /// </summary>
+// ReSharper disable UnusedMember.Global
 [McpServerToolType]
-public partial class McpServerProcessToolType
+public class McpServerProcessToolType
 {
     /// <summary>
     /// Returns basic system information for diagnostics (machine name, OS, processors, framework).
@@ -18,7 +18,7 @@ public partial class McpServerProcessToolType
     /// <returns>A <see cref="SystemInfoResult"/> containing system diagnostic information.</returns>
     [McpServerTool]
     [Description("Returns basic system information for diagnostics (machine name, OS, processors, framework).")]
-    public partial SystemInfoResult GetSystemInfo()
+    public SystemInfoResult GetSystemInfo()
     {
         return new SystemInfoResult
         {
@@ -36,9 +36,9 @@ public partial class McpServerProcessToolType
 
     [McpServerTool]
     [Description("Get the list of processes. Foreach process: Name and Process Id")]
-    public partial List<BasicProcessInfo> GetProcessList()
+    public List<BasicProcessInfo> GetProcessList()
     {
-        return Process.GetProcesses()
+        return DiagnosticsProcess.GetProcesses()
             .Select(p => new BasicProcessInfo { Name = p.ProcessName, Id = p.Id })
             .ToList();
     }
@@ -51,7 +51,7 @@ public partial class McpServerProcessToolType
         [Description("Optional: The number of process entries to include per page.")] int? pageSize = null)
     {
         var simpleProcessName = Path.GetFileNameWithoutExtension(processName);
-        return GetProcesses(() => Process.GetProcessesByName(simpleProcessName), pageNumber, pageSize);
+        return GetProcesses(() => DiagnosticsProcess.GetProcessesByName(simpleProcessName), pageNumber, pageSize);
     }
 
     [McpServerTool]
@@ -62,7 +62,7 @@ public partial class McpServerProcessToolType
         var result = new ProcessInfoResult();
         try
         {
-            var process = Process.GetProcessById(processId);
+            var process = DiagnosticsProcess.GetProcessById(processId);
             result.Process = GetProcessInfo(process);
         }
         catch (ArgumentException)
@@ -91,7 +91,7 @@ public partial class McpServerProcessToolType
         return TimeSpan.FromMilliseconds(milliseconds);
     }
 
-    private ProcessesInfoResult GetProcesses(Func<Process[]> getProcessesFunc, int? pageNumber = null, int? pageSize = null)
+    private ProcessesInfoResult GetProcesses(Func<DiagnosticsProcess[]> getProcessesFunc, int? pageNumber = null, int? pageSize = null)
     {
         var result = new ProcessesInfoResult();
 
@@ -137,7 +137,7 @@ public partial class McpServerProcessToolType
         return result;
     }
 
-    private ProcessInfo GetProcessInfo(Process process)
+    private ProcessInfo GetProcessInfo(DiagnosticsProcess process)
     {
         try
         {

@@ -1,8 +1,9 @@
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Resources.EventLog;
 
 /// <summary>
 /// Stores event log snapshot data in memory.
 /// </summary>
+// ReSharper disable once InconsistentNaming
 public interface IEventLogSnapshotStorage
 {
     /// <summary>

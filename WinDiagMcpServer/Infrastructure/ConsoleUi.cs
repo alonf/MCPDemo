@@ -1,4 +1,4 @@
-﻿namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Infrastructure;
 
 /// <summary>
 /// Provides console UI rendering for the WinDiag MCP Server.

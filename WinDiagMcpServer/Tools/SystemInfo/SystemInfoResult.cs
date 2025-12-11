@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using ModelContextProtocol.Server;
 
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Tools.SystemInfo;
 
 /// <summary>
 /// Represents the result of system information diagnostics.

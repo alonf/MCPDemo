@@ -1,4 +1,4 @@
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Resources.EventLog;
 
 /// <summary>
 /// Represents a stored event log snapshot entry.

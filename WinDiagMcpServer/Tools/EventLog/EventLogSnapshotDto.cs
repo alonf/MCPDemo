@@ -1,9 +1,10 @@
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Tools.EventLog;
 
 public partial class McpServerEventLogToolType
 {
     private sealed record EventLogSnapshotDto
     {
+        // ReSharper disable UnusedAutoPropertyAccessor.Local
         public string LogName { get; init; } = string.Empty;
 
         public string XPathQuery { get; init; } = string.Empty;

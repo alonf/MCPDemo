@@ -1,6 +1,4 @@
-using System.Collections.Generic;
-
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Tools.Process;
 
 public sealed record ProcessesInfoResult
 {
@@ -12,6 +10,7 @@ public sealed record ProcessesInfoResult
 
     public bool HasMore { get; set; }
 
+    // ReSharper disable UnusedMember.Global
     public bool HasPageSizeTruncated { get; set; }
 
     public bool HasError { get; set; }

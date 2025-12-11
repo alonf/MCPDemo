@@ -1,4 +1,4 @@
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Tools.EventLog;
 
 public record EventLogSnapshotResourceInfo
 {

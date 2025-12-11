@@ -1,7 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using WinDiagMcpServer;
+using WinDiagMcpServer.Infrastructure;
+using WinDiagMcpServer.Resources.EventLog;
 
 ConsoleUi.RenderBanner();
 

@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace WinDiagMcpServer;
+namespace WinDiagMcpServer.Infrastructure;
 
 // ReSharper disable MemberCanBePrivate.Local
 // ReSharper disable FieldCanBeMadeReadOnly.Local
@@ -22,6 +22,7 @@ internal static class Win32Api
     [Flags]
     public enum SnapshotOptions : uint
     {
+        // ReSharper disable UnusedMember.Global
         HeapList = 0x00000001,
         Process = 0x00000002,
         Thread = 0x00000004,
