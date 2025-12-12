@@ -74,6 +74,12 @@ Interactive diagnostics with:
   - Supports XPath queries for filtering
   - Stores snapshots for later access
 
+### WMI Troubleshooting
+- **`troubleshoot_with_wmi`** - AI-assisted WMI diagnostics
+  - Uses MCP Sampling to generate safe WMI queries from natural language
+  - Executes queries with guardrails
+  - Analyzes results automatically
+
 ## The Resources
 
 ### `eventlog://snapshot/{id}`

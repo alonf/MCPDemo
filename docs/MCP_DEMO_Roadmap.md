@@ -236,25 +236,29 @@ Teaching points:
 
 ---
 
-### Milestone 6 – Sampling: system health report
+### Milestone 6 – Sampling-assisted WMI troubleshooting ✅ COMPLETE
 
-* Tool: `generateSystemHealthReport()`:
+* Tool 1: `runWmiQuery(query, pageNumber, pageSize)` ✅ COMPLETE
 
-  1. Calls other tools internally:
+  * Executes raw WMI queries with pagination, token-size guarding, and timeout handling.
+  * Exposes the raw data as structured JSON so other tools or prompts can reuse it.
+* Tool 2: `troubleshootWithWmi(userRequest)` ✅ COMPLETE
 
-     * `listProcesses()`
-     * `snapshotEventLog("Application", 2h)`
-     * Maybe `getDiskUsage()`
-  2. Calls **sampling** on the client:
-
-     * Prompt: "Generate a diagnostic report from the following resources."
-  3. Returns a structured report: summary, potential issues, suggested actions.
+  1. Uses **sampling** to convert the user's natural-language troubleshooting request into a safe WMI query (with guardrails and whitelisted classes).
+  2. Invokes `runWmiQuery` internally to collect data.
+  3. Calls sampling again to summarize the WMI results back into the answer the user originally requested (e.g., "show me battery wear level").
 
 Teaching points:
 
-* Multi-tool orchestration inside server.
-* Sampling API.
-* Server using model as a service.
+* Sampling for LLM-as-a-subroutine (query synthesis + result summarization).
+* Separation between data execution (deterministic tool) and reasoning (sampling steps).
+* Demonstrating how elicitation (for missing parameters) and sampling (for AI reasoning) complement each other.
+
+**Implemented:**
+- ✅ Added `runWmiQuery` tool with safety guardrails
+- ✅ Added `troubleshootWithWmi` tool using MCP Sampling
+- ✅ Updated Client to support `SamplingCapability`
+- ✅ Implemented `SamplingHandler` in Client to process server requests
 
 ---
 

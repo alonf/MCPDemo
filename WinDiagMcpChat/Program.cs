@@ -9,6 +9,7 @@ using Microsoft.Extensions.AI;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using OpenAI;
+using OpenAI.Chat;
 using static ModelContextProtocol.Protocol.ElicitRequestParams;
 
 Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
@@ -256,6 +257,40 @@ async ValueTask<ElicitResult> HandleElicitationAsync(ElicitRequestParams? reques
     }
 }
 
+var azureClient = new AzureOpenAIClient(endpoint, credential);
+var chatClient = azureClient.GetChatClient(deploymentName);
+
+async ValueTask<CreateMessageResult> HandleSamplingAsync(
+    CreateMessageRequestParams? requestParams, 
+    CancellationToken token)
+{
+    if (requestParams is null)
+    {
+        throw new ArgumentNullException(nameof(requestParams));
+    }
+
+    var chatMessages = MapMcpToChatMessages(requestParams.Messages, requestParams.SystemPrompt);
+
+    var chatOptions = new ChatCompletionOptions
+    {
+        MaxOutputTokenCount = requestParams.MaxTokens,
+        Temperature = requestParams.Temperature ?? 0.2F,
+    };
+
+    var aiResponse = await chatClient.CompleteChatAsync(chatMessages, chatOptions, token);
+
+    return new CreateMessageResult
+    {
+        Role = Role.Assistant,
+        Content = new List<ContentBlock>
+        {
+            new TextContentBlock { Text = aiResponse.Value.Content[0].Text }
+        },
+        Model = deploymentName,
+        StopReason = "endTurn"
+    };
+}
+
 var clientOptions = new McpClientOptions
 {
     Capabilities = new ClientCapabilities
@@ -263,11 +298,13 @@ var clientOptions = new McpClientOptions
         Elicitation = new ElicitationCapability
         {
             Form = new FormElicitationCapability()
-        }
+        },
+        Sampling = new SamplingCapability()
     },
     Handlers = new McpClientHandlers
     {
-        ElicitationHandler = HandleElicitationAsync
+        ElicitationHandler = HandleElicitationAsync,
+        SamplingHandler = async (requestParams, _, token) => await HandleSamplingAsync(requestParams, token)
     }
 };
 
@@ -277,6 +314,9 @@ var mcpClient = await McpClient.CreateAsync(
         Endpoint = new Uri("http://localhost:5000/sse?apiKey=secure-mcp-key")
     }),
     clientOptions);
+
+// Register the Handler for 'sampling/createMessage' - REMOVED (Using McpClientHandlers instead)
+
 
 Console.WriteLine("Fetching tools...");
 var mcpTools = await mcpClient.ListToolsAsync();
@@ -424,9 +464,7 @@ if (mcpClient.ServerCapabilities.Prompts is not null)
 }
 
 // Create AI Agent
-AIAgent agent = new AzureOpenAIClient(endpoint, credential)
-    .GetChatClient(deploymentName)
-    .CreateAIAgent(
+AIAgent agent = chatClient.CreateAIAgent(
         instructions: $@"You are a helpful system diagnostics assistant.
                         You have access to Windows diagnostics tools via MCP.
                         
@@ -536,4 +574,42 @@ while (true)
         }
     }
     Console.WriteLine();
+}
+
+List<OpenAI.Chat.ChatMessage> MapMcpToChatMessages(
+    IEnumerable<SamplingMessage> mcpMessages, 
+    string? systemPrompt)
+{
+    var chatMessages = new List<OpenAI.Chat.ChatMessage>();
+
+    // 1. Add the System Prompt (if the server requested one)
+    if (!string.IsNullOrEmpty(systemPrompt))
+    {
+        chatMessages.Add(new SystemChatMessage(systemPrompt));
+    }
+
+    // 2. Map the conversation history
+    foreach (var msg in mcpMessages)
+    {
+        // msg.Content is McpContent (which behaves like a list of ContentBlock)
+        foreach (var block in msg.Content)
+        {
+            switch (block)
+            {
+                case TextContentBlock textBlock when msg.Role == Role.User:
+                    chatMessages.Add(new UserChatMessage(textBlock.Text));
+                    break;
+                case TextContentBlock textBlock:
+                    chatMessages.Add(new AssistantChatMessage(textBlock.Text));
+                    break;
+                // Handle Image Content (if supported)
+                case ImageContentBlock:
+                    // Convert base64 data to byte array if your IChatClient supports it
+                    // Or skip/log warning if your client doesn't support images
+                    break;
+            }
+        }
+    }
+
+    return chatMessages;
 }
