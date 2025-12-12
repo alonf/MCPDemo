@@ -91,7 +91,6 @@ Example: SELECT * FROM Win32_OperatingSystem
                 MaxTokens = 100,
                 Messages = [new SamplingMessage { Role = Role.User, Content = [new TextContentBlock { Text = queryPrompt }] }],
                 SystemPrompt = "You are a helpful assistant that generates WMI queries.",
-                StopSequences = ["\n"]
             },
             cancellationToken);
 

@@ -12,6 +12,7 @@ using OpenAI;
 using OpenAI.Chat;
 using static ModelContextProtocol.Protocol.ElicitRequestParams;
 
+#region Initialization and Server Startup
 Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
 Console.WriteLine("║         Windows Diagnostics MCP Chat Client v1.0               ║");
 Console.WriteLine("║         Interactive Chat with System Diagnostics               ║");
@@ -77,7 +78,9 @@ AppDomain.CurrentDomain.ProcessExit += (_, _) => {
 
 Console.WriteLine("Waiting for server to start...");
 await Task.Delay(5000);
+#endregion // Initialization and Server Startup
 
+#region Elicitation Handler
 async ValueTask<ElicitResult> HandleElicitationAsync(ElicitRequestParams? requestParams, CancellationToken token)
 {
     await Task.CompletedTask;
@@ -113,6 +116,7 @@ async ValueTask<ElicitResult> HandleElicitationAsync(ElicitRequestParams? reques
     Console.WriteLine("[Elicitation] Confirmation captured.");
     return new ElicitResult { Action = "accept", Content = content };
 
+    #region Elicitation Helpers
     JsonElement? PromptForValue(string propertyName, object schema, CancellationToken cancellationToken)
     {
         while (true)
@@ -255,8 +259,11 @@ async ValueTask<ElicitResult> HandleElicitationAsync(ElicitRequestParams? reques
         value = false;
         return false;
     }
+    #endregion // Elicitation Helpers
 }
+#endregion // Elicitation Handler
 
+#region Sampling Handler & Azure Client
 var azureClient = new AzureOpenAIClient(endpoint, credential);
 var chatClient = azureClient.GetChatClient(deploymentName);
 
@@ -284,13 +291,15 @@ async ValueTask<CreateMessageResult> HandleSamplingAsync(
         Role = Role.Assistant,
         Content = new List<ContentBlock>
         {
-            new TextContentBlock { Text = aiResponse.Value.Content[0].Text }
+            new TextContentBlock { Text = aiResponse.Value.Content.FirstOrDefault()?.Text ?? string.Empty}
         },
         Model = deploymentName,
         StopReason = "endTurn"
     };
 }
+#endregion // Sampling Handler & Azure Client
 
+#region MCP Client Configuration
 var clientOptions = new McpClientOptions
 {
     Capabilities = new ClientCapabilities
@@ -315,9 +324,18 @@ var mcpClient = await McpClient.CreateAsync(
     }),
     clientOptions);
 
-// Register the Handler for 'sampling/createMessage' - REMOVED (Using McpClientHandlers instead)
+mcpClient.RegisterNotificationHandler("notifications/progress", (notification, _) =>
+{
+    if (notification.Params is { } paramsNode && 
+        paramsNode["message"] is { } messageNode)
+    {
+        Console.WriteLine($"[Server Notification] {messageNode.GetValue<string>()}");
+    }
+    return ValueTask.CompletedTask;
+});
+#endregion // MCP Client Configuration
 
-
+#region Internal Tools
 Console.WriteLine("Fetching tools...");
 var mcpTools = await mcpClient.ListToolsAsync();
 var allTools = mcpTools.Cast<AITool>().ToList();
@@ -445,7 +463,9 @@ var getPromptFunction = AIFunctionFactory.Create(
     "get_prompt",
     "Retrieves and expands a named MCP prompt from the diagnostics MCP server.");
 allTools.Add(getPromptFunction);
+#endregion // Internal Tools
 
+#region Agent Initialization
 // Fetch available prompts and build the prompt list for instructions
 var availablePromptsList = "";
 if (mcpClient.ServerCapabilities.Prompts is not null)
@@ -465,7 +485,9 @@ if (mcpClient.ServerCapabilities.Prompts is not null)
 
 // Create AI Agent
 AIAgent agent = chatClient.CreateAIAgent(
-        instructions: $@"You are a helpful system diagnostics assistant.
+        instructions: 
+        #region Agent Instructions
+        $@"You are a helpful system diagnostics assistant.
                         You have access to Windows diagnostics tools via MCP.
                         
                         MCP PROMPTS - IMPORTANT WORKFLOW:
@@ -531,12 +553,15 @@ AIAgent agent = chatClient.CreateAIAgent(
                         
                         Be concise and focus on answering the user's specific question.
                         Maintain context from previous messages in the conversation.",
+        #endregion // Agent Instructions
         name: "WinDiagAgent",
         tools: allTools);
 
 // Create a new agent thread with history management
 var thread = agent.GetNewThread();
+#endregion // Agent Initialization
 
+#region Chat Loop
 Console.WriteLine("Agent ready. Type 'exit' to quit.");
 Console.WriteLine();
 
@@ -575,7 +600,9 @@ while (true)
     }
     Console.WriteLine();
 }
+#endregion // Chat Loop
 
+#region Helpers
 List<OpenAI.Chat.ChatMessage> MapMcpToChatMessages(
     IEnumerable<SamplingMessage> mcpMessages, 
     string? systemPrompt)
@@ -613,3 +640,4 @@ List<OpenAI.Chat.ChatMessage> MapMcpToChatMessages(
 
     return chatMessages;
 }
+#endregion // Helpers

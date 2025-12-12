@@ -262,7 +262,7 @@ Teaching points:
 
 ---
 
-### Milestone 7 – Roots & limitations
+### Milestone 7 – Roots & limitations ✅ COMPLETE
 
 * Configure roots such that:
 
@@ -275,6 +275,13 @@ Teaching points:
 * Sandbox model.
 * Why client is in control.
 * Security story for enterprise.
+
+**Implemented:**
+- ✅ Added Registry tools (`read_registry_key`, `list_registry_keys`) with `maxDepth` and `filter` support
+- ✅ Implemented Registry Resources (`registry://HKLM/...`) for read-only access
+- ✅ Added `RegistryRootsService` to enforce allowed registry paths (Roots)
+- ✅ Improved Server Logging with custom formatter and colors for better visibility
+- ✅ Fixed WMI tool sampling issue
 
 ---
 
