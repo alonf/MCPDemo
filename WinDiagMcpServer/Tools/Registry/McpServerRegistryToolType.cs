@@ -38,7 +38,7 @@ public class McpServerRegistryToolType(
     /// <exception cref="InvalidOperationException">Thrown when the requested path falls outside allowed roots.</exception>
     /// <exception cref="ArgumentException">Thrown when an invalid hive identifier is provided.</exception>
     [McpServerTool]
-    [Description("Creates a snapshot of a registry key and its subkeys. Requires the path to be in the allowed roots (configured via configure_registry_roots).")]
+    [Description("Primary tool for reading Windows Configuration. Creates a snapshot of a registry key and its subkeys. Requires the path to be in the allowed roots (configured via configure_registry_roots). Use this to find: Installed Software versions, Auto-Run/Startup programs, System Configurations, USB Device History, Windows Build info, and much more.")]
     public async Task<string> CreateRegistrySnapshotAsync(
         McpServer server,
         [Description("The registry hive (HKLM, HKCU, HKCR, HKU, HKCC).")] string hive,
