@@ -9,9 +9,9 @@ using Microsoft.Extensions.AI;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using OpenAI;
-using OpenAI.Chat;
 using static ModelContextProtocol.Protocol.ElicitRequestParams;
 
+#region Initialization and Server Startup
 Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
 Console.WriteLine("║         Windows Diagnostics MCP Chat Client v1.0               ║");
 Console.WriteLine("║         Interactive Chat with System Diagnostics               ║");
@@ -77,7 +77,9 @@ AppDomain.CurrentDomain.ProcessExit += (_, _) => {
 
 Console.WriteLine("Waiting for server to start...");
 await Task.Delay(5000);
+#endregion // Initialization and Server Startup
 
+#region Elicitation Handler
 async ValueTask<ElicitResult> HandleElicitationAsync(ElicitRequestParams? requestParams, CancellationToken token)
 {
     await Task.CompletedTask;
@@ -112,6 +114,8 @@ async ValueTask<ElicitResult> HandleElicitationAsync(ElicitRequestParams? reques
 
     Console.WriteLine("[Elicitation] Confirmation captured.");
     return new ElicitResult { Action = "accept", Content = content };
+
+    #region Elicitation Helpers
 
     JsonElement? PromptForValue(string propertyName, object schema, CancellationToken cancellationToken)
     {
@@ -255,7 +259,13 @@ async ValueTask<ElicitResult> HandleElicitationAsync(ElicitRequestParams? reques
         value = false;
         return false;
     }
+
+    #endregion // Elicitation Helpers
 }
+
+#endregion // Elicitation Handler
+
+#region Sampling Handler & Azure Client
 
 var azureClient = new AzureOpenAIClient(endpoint, credential);
 var chatClient = azureClient.GetChatClient(deploymentName);
@@ -264,33 +274,68 @@ async ValueTask<CreateMessageResult> HandleSamplingAsync(
     CreateMessageRequestParams? requestParams, 
     CancellationToken token)
 {
-    if (requestParams is null)
+    try
     {
-        throw new ArgumentNullException(nameof(requestParams));
-    }
-
-    var chatMessages = MapMcpToChatMessages(requestParams.Messages, requestParams.SystemPrompt);
-
-    var chatOptions = new ChatCompletionOptions
-    {
-        MaxOutputTokenCount = requestParams.MaxTokens,
-        Temperature = requestParams.Temperature ?? 0.2F,
-    };
-
-    var aiResponse = await chatClient.CompleteChatAsync(chatMessages, chatOptions, token);
-
-    return new CreateMessageResult
-    {
-        Role = Role.Assistant,
-        Content = new List<ContentBlock>
+        if (requestParams is null)
         {
-            new TextContentBlock { Text = aiResponse.Value.Content[0].Text }
-        },
-        Model = deploymentName,
-        StopReason = "endTurn"
-    };
+            throw new ArgumentNullException(nameof(requestParams));
+        }
+
+        // IMPORTANT: Sampling is the server asking the client to run an LLM on its behalf.
+        // The client must remain generic: do not add domain knowledge or validate/transform the result.
+        // If the server wants retries or stricter formatting, it should call sampling again.
+
+        token.ThrowIfCancellationRequested();
+
+        var samplingAgent = chatClient.CreateAIAgent(
+            instructions: string.IsNullOrWhiteSpace(requestParams.SystemPrompt)
+                ? "You are a sampling runner. Respond as the assistant to the provided transcript. Do not call tools unless explicitly instructed."
+                : requestParams.SystemPrompt,
+            name: "SamplingRunner",
+            tools: Array.Empty<AITool>());
+
+        var samplingThread = samplingAgent.GetNewThread();
+        var transcript = BuildSamplingTranscript(requestParams);
+        var response = await samplingAgent.RunAsync(transcript, samplingThread);
+
+        var generatedText = response.Text;
+
+        if (string.IsNullOrWhiteSpace(generatedText))
+        {
+            Console.WriteLine("[Warning] Sampling response contained no text content. Returning empty string.");
+            generatedText = string.Empty;
+        }
+
+        return new CreateMessageResult
+        {
+            Role = Role.Assistant,
+            Content = new List<ContentBlock>
+            {
+                new TextContentBlock { Text = generatedText }
+            },
+            Model = deploymentName,
+            StopReason = "endTurn"
+        };
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Error] Sampling handler failed: {ex.GetType().Name}: {ex.Message}");
+        return new CreateMessageResult
+        {
+            Role = Role.Assistant,
+            Content = new List<ContentBlock>
+            {
+                new TextContentBlock { Text = $"[SamplingError] {ex.GetType().Name}: {ex.Message}" }
+            },
+            Model = deploymentName,
+            StopReason = "error"
+        };
+    }
 }
 
+#endregion // Sampling Handler & Azure Client
+
+#region MCP Client Configuration
 var clientOptions = new McpClientOptions
 {
     Capabilities = new ClientCapabilities
@@ -317,7 +362,10 @@ var mcpClient = await McpClient.CreateAsync(
 
 // Register the Handler for 'sampling/createMessage' - REMOVED (Using McpClientHandlers instead)
 
+#endregion // MCP Client Configuration
 
+
+#region Internal Tools
 Console.WriteLine("Fetching tools...");
 var mcpTools = await mcpClient.ListToolsAsync();
 var allTools = mcpTools.Cast<AITool>().ToList();
@@ -446,6 +494,9 @@ var getPromptFunction = AIFunctionFactory.Create(
     "Retrieves and expands a named MCP prompt from the diagnostics MCP server.");
 allTools.Add(getPromptFunction);
 
+#endregion // Internal Tools
+
+#region Agent Initialization
 // Fetch available prompts and build the prompt list for instructions
 var availablePromptsList = "";
 if (mcpClient.ServerCapabilities.Prompts is not null)
@@ -465,7 +516,9 @@ if (mcpClient.ServerCapabilities.Prompts is not null)
 
 // Create AI Agent
 AIAgent agent = chatClient.CreateAIAgent(
-        instructions: $@"You are a helpful system diagnostics assistant.
+    instructions:
+    #region Agent Instructions
+    $@"You are a helpful system diagnostics assistant.
                         You have access to Windows diagnostics tools via MCP.
                         
                         MCP PROMPTS - IMPORTANT WORKFLOW:
@@ -531,12 +584,16 @@ AIAgent agent = chatClient.CreateAIAgent(
                         
                         Be concise and focus on answering the user's specific question.
                         Maintain context from previous messages in the conversation.",
+                #endregion // Agent Instructions
         name: "WinDiagAgent",
         tools: allTools);
 
 // Create a new agent thread with history management
 var thread = agent.GetNewThread();
 
+#endregion // Agent Initialization
+
+#region Chat Loop
 Console.WriteLine("Agent ready. Type 'exit' to quit.");
 Console.WriteLine();
 
@@ -576,40 +633,39 @@ while (true)
     Console.WriteLine();
 }
 
-List<OpenAI.Chat.ChatMessage> MapMcpToChatMessages(
-    IEnumerable<SamplingMessage> mcpMessages, 
-    string? systemPrompt)
-{
-    var chatMessages = new List<OpenAI.Chat.ChatMessage>();
+#endregion // Chat Loop
 
-    // 1. Add the System Prompt (if the server requested one)
-    if (!string.IsNullOrEmpty(systemPrompt))
+#region Helpers
+static string BuildSamplingTranscript(CreateMessageRequestParams requestParams)
+{
+    var sb = new StringBuilder();
+
+    if (!string.IsNullOrWhiteSpace(requestParams.SystemPrompt))
     {
-        chatMessages.Add(new SystemChatMessage(systemPrompt));
+        sb.AppendLine("[SYSTEM]");
+        sb.AppendLine(requestParams.SystemPrompt);
+        sb.AppendLine();
     }
 
-    // 2. Map the conversation history
-    foreach (var msg in mcpMessages)
+    foreach (var msg in requestParams.Messages)
     {
-        // msg.Content is McpContent (which behaves like a list of ContentBlock)
+        sb.AppendLine($"[{msg.Role}]");
         foreach (var block in msg.Content)
         {
-            switch (block)
+            if (block is TextContentBlock text)
             {
-                case TextContentBlock textBlock when msg.Role == Role.User:
-                    chatMessages.Add(new UserChatMessage(textBlock.Text));
-                    break;
-                case TextContentBlock textBlock:
-                    chatMessages.Add(new AssistantChatMessage(textBlock.Text));
-                    break;
-                // Handle Image Content (if supported)
-                case ImageContentBlock:
-                    // Convert base64 data to byte array if your IChatClient supports it
-                    // Or skip/log warning if your client doesn't support images
-                    break;
+                sb.AppendLine(text.Text);
+            }
+            else
+            {
+                sb.AppendLine(block.ToString());
             }
         }
+
+        sb.AppendLine();
     }
 
-    return chatMessages;
+    return sb.ToString();
 }
+#endregion // Helpers
+

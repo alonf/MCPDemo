@@ -76,34 +76,87 @@ public class McpServerWmiToolType(ILogger<McpServerWmiToolType> logger)
         [Description("A description of the required information or the problem to diagnose.")] string userRequest,
         CancellationToken cancellationToken = default)
     {
-        // Step 1: Ask LLM to generate a WMI query
-        var queryPrompt = $@"
-You are a Windows system administrator.
-The user is asking for an information or reporting a problem using this request: ""{userRequest}""
-Generate a single WMI query (WQL) to gather information relevant to this request.
-Return ONLY the WMI query string. Do not include any markdown formatting or explanation.
-Example: SELECT * FROM Win32_OperatingSystem
+        // Step 1: Ask the client (via MCP Sampling) to generate a WMI query.
+        // The server is the authority: it provides constraints/examples and retries if the response is invalid.
+        const int maxQueryAttempts = 4;
+
+        var basePrompt = $@"
+You are a WMI Query Generator.
+Your task: derive a single WMI query (WQL) that helps answer the user's request.
+
+USER REQUEST:
+{userRequest}
+
+OUTPUT FORMAT (MUST follow):
+- Return EXACTLY ONE LINE.
+- That line MUST start with SELECT.
+- Return ONLY the WMI query (WQL). No prose, no explanations, no prefixes, no markdown, no code fences.
+
+WQL RULES (MUST follow):
+1. WQL is NOT SQL.
+2. FORBIDDEN: JOIN, UNION, subqueries, CTEs, GROUP BY, HAVING, ORDER BY.
+3. Use exactly ONE WMI class in the FROM clause.
+4. Prefer selecting specific properties (avoid SELECT * unless necessary).
+5. Use simple WHERE filters only.
+
+REFERENCE EXAMPLES (with brief intent):
+- Disk free space: SELECT DeviceID, Size, FreeSpace FROM Win32_LogicalDisk WHERE DriveType = 3
+- Network adapters: SELECT Name, NetConnectionStatus, Speed FROM Win32_NetworkAdapter WHERE PhysicalAdapter = TRUE
+- Non-running services: SELECT Name, State, StartMode FROM Win32_Service WHERE State != ""Running""
+- Large-memory processes: SELECT Name, ProcessId, WorkingSetSize FROM Win32_Process WHERE WorkingSetSize > 200000000
 ";
 
-        var queryResult = await server.SampleAsync(
-            new CreateMessageRequestParams
-            {
-                MaxTokens = 100,
-                Messages = [new SamplingMessage { Role = Role.User, Content = [new TextContentBlock { Text = queryPrompt }] }],
-                SystemPrompt = "You are a helpful assistant that generates WMI queries.",
-                StopSequences = ["\n"]
-            },
-            cancellationToken);
+        string? lastModelText = null;
+        string? lastValidationError = null;
+        var wmiQuery = string.Empty;
 
-        var wmiQuery = queryResult.Content.FirstOrDefault() is TextContentBlock textBlock ? textBlock.Text.Trim() : null;
+        for (var attempt = 1; attempt <= maxQueryAttempts; attempt++)
+        {
+            var prompt = basePrompt;
+            if (!string.IsNullOrWhiteSpace(lastModelText) && !string.IsNullOrWhiteSpace(lastValidationError))
+            {
+                prompt += $@"
+
+PREVIOUS OUTPUT (invalid):
+{Wql.SanitizeModelOutput(lastModelText)}
+
+WHY INVALID:
+{lastValidationError}
+
+Try again. Remember: output EXACTLY ONE LINE that starts with SELECT, and nothing else.
+";
+            }
+
+            var (queryText, queryError) = await SafeSampleTextAsync(
+                server,
+                new CreateMessageRequestParams
+                {
+                    MaxTokens = 180,
+                    SystemPrompt = "You generate WQL only. Do not use tools. Do not output prose or markdown.",
+                    Messages = [new SamplingMessage { Role = Role.User, Content = [new TextContentBlock { Text = prompt }] }],
+                },
+                cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(queryText))
+            {
+                lastModelText = queryText;
+                lastValidationError = queryError ?? "Empty sampling response.";
+                continue;
+            }
+
+            lastModelText = queryText;
+            if (Wql.TryValidateAndExtractWql(queryText, out wmiQuery, out var validationError))
+            {
+                break;
+            }
+
+            lastValidationError = validationError;
+        }
 
         if (string.IsNullOrWhiteSpace(wmiQuery))
         {
-            return "Failed to generate a WMI query.";
+            return $"Failed to generate a valid WMI query after {maxQueryAttempts} attempts. LastError={lastValidationError}. LastOutput='{Wql.SanitizeModelOutput(lastModelText ?? string.Empty)}'.";
         }
-
-        // Clean up the query if it contains markdown code blocks
-        wmiQuery = wmiQuery.Replace("```wql", string.Empty).Replace("```sql", string.Empty).Replace("```", string.Empty).Trim();
 
         logger.LogInformation("Generated WMI Query: {Query}", wmiQuery);
 
@@ -128,15 +181,122 @@ The results are:
 Analyze these results and provide a diagnosis or recommendation.
 ";
 
-        var analysisResult = await server.SampleAsync(
+        var (analysisText, analysisError) = await SafeSampleTextAsync(
+            server,
             new CreateMessageRequestParams
             {
-                MaxTokens = 500,
+                MaxTokens = 600,
                 Messages = [new SamplingMessage { Role = Role.User, Content = [new TextContentBlock { Text = analysisPrompt }] }],
                 SystemPrompt = "You are a helpful assistant that analyzes system diagnostics."
             },
             cancellationToken);
 
-        return analysisResult.Content.FirstOrDefault() is TextContentBlock analysisBlock ? analysisBlock.Text : "Failed to generate analysis.";
+        return string.IsNullOrWhiteSpace(analysisText)
+            ? $"Failed to generate analysis. {analysisError}"
+            : analysisText;
+    }
+
+    private static string? ExtractText(CreateMessageResult result)
+    {
+        if (result.Content.Count == 0)
+        {
+            return null;
+        }
+
+        return string.Concat(result.Content
+            .OfType<TextContentBlock>()
+            .Select(block => block.Text)
+            .Where(text => !string.IsNullOrWhiteSpace(text)));
+    }
+
+    private async Task<(string? Text, string? Error)> SafeSampleTextAsync(
+        McpServer server,
+        CreateMessageRequestParams request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await server.SampleAsync(request, cancellationToken);
+            var text = ExtractText(result);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return (null, "Sampling returned empty content.");
+            }
+
+            return (text, null);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Sampling request failed.");
+            return (null, $"Sampling request failed: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    private static class Wql
+    {
+        private static readonly string[] _forbiddenSqlTokens =
+        [
+            " join ",
+            " union ",
+            " group by ",
+            " having ",
+            " order by ",
+            " with ",
+            " from (",
+            " select (",
+        ];
+
+        public static string SanitizeModelOutput(string text) => text
+            .Replace("```wql", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("```sql", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("```", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Trim();
+
+        public static bool TryValidateAndExtractWql(string? modelText, out string wql, out string validationError)
+        {
+            wql = string.Empty;
+            validationError = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(modelText))
+            {
+                validationError = "Sampling returned empty text.";
+                return false;
+            }
+
+            var sanitized = SanitizeModelOutput(modelText);
+            var lines = sanitized
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim())
+                .ToArray();
+
+            if (lines.Length != 1)
+            {
+                validationError = "Output must be EXACTLY ONE LINE.";
+                return false;
+            }
+
+            var line = lines[0];
+            if (!line.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
+            {
+                validationError = "Line must start with SELECT.";
+                return false;
+            }
+
+            if (line.Contains(';', StringComparison.Ordinal))
+            {
+                validationError = "Must not include semicolons.";
+                return false;
+            }
+
+            var lowered = $" {line.ToLowerInvariant()} ";
+            if (_forbiddenSqlTokens.Any(token => lowered.Contains(token, StringComparison.Ordinal)))
+            {
+                validationError = "Contains SQL-only constructs (e.g., JOIN/UNION/GROUP BY/ORDER BY/CTE/subquery).";
+                return false;
+            }
+
+            wql = line;
+            return true;
+        }
     }
 }
