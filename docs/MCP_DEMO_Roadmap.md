@@ -11,7 +11,7 @@ Examples:
 * `killProcess(pid)` *(dangerous → later milestone, gated by confirmation)*
 * `getSystemInfo()` (OS, CPU, RAM, etc.)
 * `queryEventLog(logName, since)`
-* `queryWmi(query)` (e.g. `SELECT * FROM Win32_OperatingSystem`)
+* `troubleshootWithWmi(userRequest)` (sampling-assisted WMI troubleshooting)
 * `readRegistry(path)`
 * `writeRegistry(path, value)` *(again: only in advanced milestone)*
 * `getTopCpuProcesses(n)`
@@ -238,13 +238,13 @@ Teaching points:
 
 ### Milestone 6 – Sampling-assisted WMI troubleshooting ✅ COMPLETE
 
-* Tool 1: `runWmiQuery(query, pageNumber, pageSize)` ✅ COMPLETE
+* Tool 1: `runWmiQuery(query, pageNumber, pageSize)` ✅ COMPLETE *(internal only; not exposed as a public MCP tool)*
 
   * Executes raw WMI queries with pagination, token-size guarding, and timeout handling.
   * Exposes the raw data as structured JSON so other tools or prompts can reuse it.
 * Tool 2: `troubleshootWithWmi(userRequest)` ✅ COMPLETE
 
-  1. Uses **sampling** to convert the user's natural-language troubleshooting request into a safe WMI query (with guardrails and whitelisted classes).
+  1. Uses **sampling** to convert the user's natural-language troubleshooting request into a safe WMI query (with formatting guardrails and server-side validation/retries).
   2. Invokes `runWmiQuery` internally to collect data.
   3. Calls sampling again to summarize the WMI results back into the answer the user originally requested (e.g., "show me battery wear level").
 
@@ -255,7 +255,7 @@ Teaching points:
 * Demonstrating how elicitation (for missing parameters) and sampling (for AI reasoning) complement each other.
 
 **Implemented:**
-- ✅ Added `runWmiQuery` tool with safety guardrails
+- ✅ Added internal `runWmiQuery` execution with safety guardrails (not exposed as a tool)
 - ✅ Added `troubleshootWithWmi` tool using MCP Sampling
 - ✅ Updated Client to support `SamplingCapability`
 - ✅ Implemented `SamplingHandler` in Client to process server requests

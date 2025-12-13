@@ -6,33 +6,38 @@ namespace WinDiagMcpServer.Prompts.Wmi;
 // ReSharper disable UnusedMember.Global
 
 /// <summary>
-/// Provides prompt templates for guiding the AI assistant through WMI-based troubleshooting workflows.
+/// Provides MCP prompt templates for troubleshooting Windows components using WMI.
 /// </summary>
+[McpServerPromptType]
 public class WmiTroubleshootingPromptType
 {
     /// <summary>
-    /// Generates instructions for diagnosing a reported system issue using the preferred WMI troubleshooting workflow.
+    /// Generates a prompt instructing the agent to troubleshoot a specific component via the WMI troubleshooting tool.
     /// </summary>
-    /// <param name="problemDescription">A description of the system problem to diagnose.</param>
-    /// <returns>The formatted troubleshooting guidance to provide to the AI assistant.</returns>
+    /// <param name="component">The component to analyze (for example, "Logical Disks" or "Network Adapters").</param>
+    /// <returns>A prompt string to be used by the MCP server.</returns>
     [McpServerPrompt]
-    [Description("Guides the AI assistant to use the WMI troubleshooting tool for system diagnostics.")]
-    public string TroubleshootSystemProblem(
-        [Description("A description of the system problem to diagnose.")] string problemDescription)
+    [Description("Deep dive analysis of a specific system component (Disk, Network, etc.) using WMI.")]
+    public string TroubleshootComponent(
+        [Description("The component to analyze (e.g., 'Logical Disks', 'Network Adapters')")] string component = "the requested component")
     {
+        var targetComponent = string.IsNullOrWhiteSpace(component) ? "the requested component" : component;
+
         return $"""
-            You are an expert Windows system administrator.
-            The user reports the following problem: ""{problemDescription}"".
+            You are a Windows Internals Specialist.
+            The user wants a deep inspection of: {targetComponent}.
 
-            **IMPORTANT WORKFLOW**
-            1. Prefer the `TroubleshootWithWmiAsync` tool. It automatically:
-               - Generates a safe WMI query for the scenario.
-               - Executes it with guardrails.
-               - Analyzes the results.
-            2. Only fall back to raw `RunWmiQuery` if the troubleshooting tool fails or you explicitly need a custom query.
-            3. Summarize findings and next steps for the user.
-
-            Begin by invoking `TroubleshootWithWmiAsync` with the provided problem description.
+            **WORKFLOW:**
+            1. **DO NOT** use the generic `diagnose_system_health` prompt.
+            2. **DO NOT** use standard process or event log tools.
+            3. You **MUST** use the `TroubleshootWithWmiAsync` tool.
+            
+            **INSTRUCTIONS:**
+            - Call `TroubleshootWithWmiAsync` immediately.
+            - Pass a description like: "Get detailed status of {targetComponent} including capacity and free space."
+            - Let the tool choose the safest single-table WQL query.
+            
+            This tool will handle the query generation for you. Rely on it.
             """;
     }
 }
