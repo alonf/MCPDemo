@@ -5,6 +5,8 @@ using ModelContextProtocol.Server;
 
 namespace WinDiagMcpServer;
 
+// ReSharper disable UnusedMember.Global
+
 /// <summary>
 /// MCP server tool type for Windows diagnostics operations.
 /// </summary>
@@ -31,16 +33,6 @@ public partial class WinDiagMcpServerToolType
             CurrentDirectory = Environment.CurrentDirectory,
             SystemUpTime = GetSystemUptime()
         };
-    }
-
-    /// <summary>
-    /// Gets the system uptime based on the tick count.
-    /// </summary>
-    /// <returns>A <see cref="TimeSpan"/> representing how long the system has been running.</returns>
-    private static TimeSpan GetSystemUptime()
-    {
-        long milliseconds = Environment.TickCount64;
-        return TimeSpan.FromMilliseconds(milliseconds);
     }
 
     [McpServerTool]
@@ -90,6 +82,16 @@ public partial class WinDiagMcpServerToolType
         return result;
     }
 
+    /// <summary>
+    /// Gets the system uptime based on the tick count.
+    /// </summary>
+    /// <returns>A <see cref="TimeSpan"/> representing how long the system has been running.</returns>
+    private static TimeSpan GetSystemUptime()
+    {
+        var milliseconds = Environment.TickCount64;
+        return TimeSpan.FromMilliseconds(milliseconds);
+    }
+
     private ProcessesInfoResult GetProcesses(Func<Process[]> getProcessesFunc, int? pageNumber = null, int? pageSize = null)
     {
         var result = new ProcessesInfoResult();
@@ -104,8 +106,8 @@ public partial class WinDiagMcpServerToolType
             pageNumber = 1;
         }
 
-        int actualPageSize = pageSize.Value;
-        int actualPageNumber = pageNumber.Value;
+        var actualPageSize = pageSize.Value;
+        var actualPageNumber = pageNumber.Value;
 
         result.PageNumber = actualPageNumber;
         result.PageSize = actualPageSize;
@@ -114,10 +116,10 @@ public partial class WinDiagMcpServerToolType
         {
             var processes = getProcessesFunc();
             result.TotalCount = processes.Length;
-            int startIndex = (actualPageNumber - 1) * actualPageSize;
-            int endIndex = Math.Min(startIndex + actualPageSize, processes.Length);
+            var startIndex = (actualPageNumber - 1) * actualPageSize;
+            var endIndex = Math.Min(startIndex + actualPageSize, processes.Length);
 
-            for (int i = startIndex; i < endIndex; i++)
+            for (var i = startIndex; i < endIndex; i++)
             {
                 var processInfo = GetProcessInfo(processes[i]);
                 result.Processes.Add(processInfo);
@@ -207,8 +209,8 @@ public partial class WinDiagMcpServerToolType
 
     private int GetParentProcessId(int processId)
     {
-        int parentProcessId = 0;
-        IntPtr snapshotHandle = Win32Api.CreateToolhelp32Snapshot(Win32Api.SnapshotOptions.Process, 0);
+        var parentProcessId = 0;
+        var snapshotHandle = Win32Api.CreateToolhelp32Snapshot(Win32Api.SnapshotOptions.Process, 0);
         if (snapshotHandle != IntPtr.Zero)
         {
             var processEntry = new Win32Api.ProcessEntry32

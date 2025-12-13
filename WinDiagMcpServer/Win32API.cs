@@ -2,6 +2,10 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
+#pragma warning disable SA1201
+#pragma warning disable IDE0007
+#pragma warning disable SA1202
+
 namespace WinDiagMcpServer;
 
 // ReSharper disable MemberCanBePrivate.Local
@@ -11,8 +15,22 @@ namespace WinDiagMcpServer;
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable IdentifierTypo
 // ReSharper disable ArrangeTypeMemberModifiers
+// ReSharper disable UnusedMember.Global
 internal static class Win32Api
 {
+    [Flags]
+    public enum SnapshotOptions : uint
+    {
+        HeapList = 0x00000001,
+        Process = 0x00000002,
+        Thread = 0x00000004,
+        Module = 0x00000008,
+        Module32 = 0x00000010,
+        Inherit = 0x80000000,
+        All = 0x0000001F,
+        NoHeaps = 0x40000000
+    }
+
     private const uint GrGdiObjects = 0;
 
     private const uint GrUserObjects = 1;
@@ -102,19 +120,6 @@ internal static class Win32Api
         public int Bottom;
     }
 
-    [Flags]
-    public enum SnapshotOptions : uint
-    {
-        HeapList = 0x00000001,
-        Process = 0x00000002,
-        Thread = 0x00000004,
-        Module = 0x00000008,
-        Module32 = 0x00000010,
-        Inherit = 0x80000000,
-        All = 0x0000001F,
-        NoHeaps = 0x40000000
-    }
-
     [StructLayout(LayoutKind.Sequential)]
     public struct ProcessEntry32
     {
@@ -140,3 +145,7 @@ internal static class Win32Api
         public string SzExeFile;
     }
 }
+#pragma warning restore SA1201
+#pragma warning restore IDE0007
+#pragma warning restore SA1202
+

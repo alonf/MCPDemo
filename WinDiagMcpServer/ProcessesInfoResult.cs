@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace WinDiagMcpServer;
 
 public sealed record ProcessesInfoResult
