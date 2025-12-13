@@ -13,6 +13,6 @@ public partial class McpServerEventLogToolType
 
         public int EventCount { get; init; }
 
-        public List<EventLogRecordDto> Events { get; init; } = new();
+        public List<EventLogRecordDto> Events { get; init; } = [];
     }
 }

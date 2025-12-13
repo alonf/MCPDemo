@@ -2,7 +2,7 @@ namespace WinDiagMcpServer.Tools.Process;
 
 public sealed record ProcessesInfoResult
 {
-    public List<ProcessInfo> Processes { get; } = new();
+    public List<ProcessInfo> Processes { get; } = [];
 
     public int PageNumber { get; set; }
 

@@ -3,8 +3,18 @@ using ModelContextProtocol.Server;
 
 namespace WinDiagMcpServer.Prompts.Registry;
 
+// ReSharper disable UnusedMember.Global
+
+/// <summary>
+/// Provides prompt definitions for registry troubleshooting scenarios.
+/// </summary>
 public class RegistryTroubleshootingPromptType
 {
+    /// <summary>
+    /// Builds the registry troubleshooting instructions for an AI assistant.
+    /// </summary>
+    /// <param name="taskDescription">The user-provided description of the registry task.</param>
+    /// <returns>The formatted prompt that guides registry troubleshooting.</returns>
     [McpServerPrompt]
     [Description("Guides the AI assistant to use the Registry troubleshooting tool.")]
     public string TroubleshootRegistry(

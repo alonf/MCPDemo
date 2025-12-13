@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
-using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using WinDiagMcpServer.Resources.Registry;
@@ -32,6 +31,8 @@ public class McpServerRegistryToolType(
     /// <param name="hive">Registry hive identifier (e.g., HKLM).</param>
     /// <param name="key">Path of the registry key to capture.</param>
     /// <param name="recursive">Whether subkeys should be traversed recursively.</param>
+    /// <param name="maxDepth">Maximum depth for recursion.</param>
+    /// <param name="filter">Filter string to include only matching keys and values (case-insensitive).</param>
     /// <param name="cancellationToken">Token used to cancel the snapshot operation.</param>
     /// <returns>URI for the stored registry snapshot resource or an error string if the key is missing.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the requested path falls outside allowed roots.</exception>
@@ -70,7 +71,7 @@ public class McpServerRegistryToolType(
         }
 
         // If maxDepth is specified and > 0, imply recursion
-        if (maxDepth.HasValue && maxDepth.Value > 0)
+        if (maxDepth is > 0)
         {
             recursive = true;
         }
@@ -94,7 +95,7 @@ public class McpServerRegistryToolType(
     /// <returns>A message indicating the result of the request.</returns>
     [McpServerTool]
     [Description("Requests permission from the user to access a specific registry path. Use this when 'create_registry_snapshot' returns Access Denied.")]
-    public async Task<string> RequestRegistryAccess(
+    public async Task<string> RequestRegistryAccessAsync(
         McpServer server,
         [Description("The registry path to request access for (e.g., HKLM\\Software).")] string path,
         CancellationToken cancellationToken = default)
@@ -174,10 +175,10 @@ public class McpServerRegistryToolType(
     /// <returns>A task representing the asynchronous traversal operation.</returns>
     /// <exception cref="OperationCanceledException">Thrown if traversal is canceled.</exception>
     private async Task CrawlKeyAsync(
-        McpServer server, 
-        RegistryKey currentKey, 
-        RegistryKeyDto dto, 
-        bool recursive, 
+        McpServer server,
+        RegistryKey currentKey,
+        RegistryKeyDto dto,
+        bool recursive,
         int currentDepth,
         int? maxDepth,
         string? filter,

@@ -3,8 +3,18 @@ using ModelContextProtocol.Server;
 
 namespace WinDiagMcpServer.Prompts.Wmi;
 
+// ReSharper disable UnusedMember.Global
+
+/// <summary>
+/// Provides prompt templates for guiding the AI assistant through WMI-based troubleshooting workflows.
+/// </summary>
 public class WmiTroubleshootingPromptType
 {
+    /// <summary>
+    /// Generates instructions for diagnosing a reported system issue using the preferred WMI troubleshooting workflow.
+    /// </summary>
+    /// <param name="problemDescription">A description of the system problem to diagnose.</param>
+    /// <returns>The formatted troubleshooting guidance to provide to the AI assistant.</returns>
     [McpServerPrompt]
     [Description("Guides the AI assistant to use the WMI troubleshooting tool for system diagnostics.")]
     public string TroubleshootSystemProblem(

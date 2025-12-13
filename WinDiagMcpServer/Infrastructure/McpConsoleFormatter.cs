@@ -5,17 +5,14 @@ using Microsoft.Extensions.Logging.Console;
 
 namespace WinDiagMcpServer.Infrastructure;
 
-public class McpConsoleFormatter : ConsoleFormatter
+public class McpConsoleFormatter() : ConsoleFormatter(_formatName)
 {
-    private const string FormatName = "mcp";
-    private static readonly Regex MethodPattern = new(@"method '([^']+)'", RegexOptions.Compiled);
-
-    public McpConsoleFormatter() : base(FormatName) { }
+    private const string _formatName = "mcp";
+    private static readonly Regex _methodPattern = new("method '([^']+)'", RegexOptions.Compiled);
 
     public override void Write<TState>(in LogEntry<TState> logEntry, IExternalScopeProvider? scopeProvider, TextWriter textWriter)
     {
         var message = logEntry.Formatter(logEntry.State, logEntry.Exception);
-        if (message == null) return;
 
         // Timestamp
         var timestamp = DateTime.Now.ToString("HH:mm:ss");
@@ -31,37 +28,37 @@ public class McpConsoleFormatter : ConsoleFormatter
         textWriter.Write($"{logEntry.Category}[{logEntry.EventId}]");
 
         // Scopes
-        if (scopeProvider != null)
+        scopeProvider?.ForEachScope(
+            (scope, state) =>
         {
-            scopeProvider.ForEachScope((scope, state) =>
-            {
-                state.Write(" => ");
-                state.Write(scope);
-            }, textWriter);
-        }
+            state.Write(" => ");
+            state.Write(scope);
+        },
+            textWriter);
 
         textWriter.Write(" ");
 
         // Message with highlighting
-        var matches = MethodPattern.Matches(message);
+        var matches = _methodPattern.Matches(message);
         if (matches.Count > 0)
         {
-            int lastIndex = 0;
+            var lastIndex = 0;
             foreach (Match match in matches)
             {
                 textWriter.Write(message.Substring(lastIndex, match.Index - lastIndex));
                 textWriter.Write("method '");
-                
+
                 var methodName = match.Groups[1].Value;
                 var color = GetMethodColor(methodName);
-                
+
                 textWriter.Write(color);
                 textWriter.Write(methodName);
                 textWriter.Write("\x1b[0m"); // Reset
                 textWriter.Write("'");
                 lastIndex = match.Index + match.Length;
             }
-            textWriter.Write(message.Substring(lastIndex));
+
+            textWriter.Write(message[lastIndex..]);
         }
         else
         {
@@ -73,10 +70,26 @@ public class McpConsoleFormatter : ConsoleFormatter
 
     private static string GetMethodColor(string methodName)
     {
-        if (methodName.StartsWith("tools/", StringComparison.OrdinalIgnoreCase)) return "\x1b[35m"; // Magenta
-        if (methodName.StartsWith("resources/", StringComparison.OrdinalIgnoreCase)) return "\x1b[34m"; // Blue
-        if (methodName.StartsWith("prompts/", StringComparison.OrdinalIgnoreCase)) return "\x1b[36m"; // Cyan
-        if (methodName.StartsWith("sampling/", StringComparison.OrdinalIgnoreCase)) return "\x1b[33m"; // Yellow
+        if (methodName.StartsWith("tools/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "\x1b[35m"; // Magenta
+        }
+
+        if (methodName.StartsWith("resources/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "\x1b[34m"; // Blue
+        }
+
+        if (methodName.StartsWith("prompts/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "\x1b[36m"; // Cyan
+        }
+
+        if (methodName.StartsWith("sampling/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "\x1b[33m"; // Yellow
+        }
+
         return "\x1b[32m"; // Green (default)
     }
 
@@ -99,6 +112,6 @@ public class McpConsoleFormatter : ConsoleFormatter
         LogLevel.Warning => "warn",
         LogLevel.Error => "fail",
         LogLevel.Critical => "crit",
-        _ => level.ToString().ToLower().Substring(0, 4)
+        _ => level.ToString().ToLower()[..4]
     };
 }

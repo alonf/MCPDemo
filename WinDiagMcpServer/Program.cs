@@ -1,10 +1,8 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
-using WinDiagMcpServer.Infrastructure;
 using WinDiagMcpServer.Resources.Registry;
 using WinDiagMcpServer.Services;
 
@@ -15,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 var logLevel = ResolveLogLevel(Environment.GetEnvironmentVariable("MCP_LOG_LEVEL"));
 
 builder.Logging.ClearProviders();
+
 // Use custom McpConsoleFormatter for highlighted method names
 builder.Logging.AddConsole(options => options.FormatterName = "mcp")
     .AddConsoleFormatter<McpConsoleFormatter, ConsoleFormatterOptions>();

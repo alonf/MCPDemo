@@ -6,5 +6,5 @@ public record RegistryKeyDto
 
     public Dictionary<string, string> Values { get; set; } = new();
 
-    public List<RegistryKeyDto> SubKeys { get; set; } = new();
+    public List<RegistryKeyDto> SubKeys { get; set; } = [];
 }
