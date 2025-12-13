@@ -87,6 +87,28 @@ public class McpServerProcessToolType(ILogger<McpServerProcessToolType> logger)
         return result;
     }
 
+    /// <summary>
+    /// Retrieves a list of processes with the highest CPU usage over a short sampling period.
+    /// </summary>
+    /// <param name="count">The number of processes to retrieve (default: 5).</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A list of <see cref="ProcessCpuUsage"/> objects representing the top CPU consumers.</returns>
+    [McpServerTool]
+    [Description("Retrieves a list of processes with the highest CPU usage over a short sampling period.")]
+    public async Task<List<ProcessCpuUsage>> GetTopCpuProcesses(
+        [Description("The number of processes to retrieve (default: 5).")] int count = 5,
+        CancellationToken cancellationToken = default)
+    {
+        var candidates = await SampleTopCpuProcessesAsync(count, cancellationToken);
+        return candidates.Select(c => new ProcessCpuUsage
+        {
+            ProcessId = c.ProcessId,
+            ProcessName = c.ProcessName,
+            WorkingSet = c.WorkingSet,
+            CpuPercent = c.CpuPercent
+        }).ToList();
+    }
+
     [McpServerTool]
     [Description("Terminates a running process after explicit confirmation from the user.")]
     public async Task<KillProcessResult> KillProcessAsync(

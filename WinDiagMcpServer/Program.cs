@@ -1,8 +1,8 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 
 ConsoleUi.RenderBanner();
 
@@ -11,17 +11,10 @@ var builder = WebApplication.CreateBuilder(args);
 var logLevel = ResolveLogLevel(Environment.GetEnvironmentVariable("MCP_LOG_LEVEL"));
 
 builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddJsonConsole(options =>
-{
-    options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
-    options.UseUtcTimestamp = true;
-    options.IncludeScopes = true;
-    options.JsonWriterOptions = new JsonWriterOptions
-    {
-        Indented = false
-    };
-});
+
+// Use custom McpConsoleFormatter for highlighted method names
+builder.Logging.AddConsole(options => options.FormatterName = "mcp")
+    .AddConsoleFormatter<McpConsoleFormatter, ConsoleFormatterOptions>();
 builder.Logging.SetMinimumLevel(logLevel);
 
 // Register event log snapshot storage as singleton
