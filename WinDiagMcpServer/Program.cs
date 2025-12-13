@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
+using WinDiagMcpServer.Infrastructure;
 using WinDiagMcpServer.Resources.Registry;
 using WinDiagMcpServer.Services;
 

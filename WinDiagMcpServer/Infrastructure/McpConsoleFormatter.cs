@@ -5,11 +5,21 @@ using Microsoft.Extensions.Logging.Console;
 
 namespace WinDiagMcpServer.Infrastructure;
 
+/// <summary>
+/// A custom console formatter for MCP server logging that provides color-coded output for different log levels and MCP method calls.
+/// </summary>
 public class McpConsoleFormatter() : ConsoleFormatter(_formatName)
 {
     private const string _formatName = "mcp";
     private static readonly Regex _methodPattern = new("method '([^']+)'", RegexOptions.Compiled);
 
+    /// <summary>
+    /// Writes the log entry to the console with custom formatting.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state object.</typeparam>
+    /// <param name="logEntry">The log entry to write.</param>
+    /// <param name="scopeProvider">The provider for scope information.</param>
+    /// <param name="textWriter">The writer to write the output to.</param>
     public override void Write<TState>(in LogEntry<TState> logEntry, IExternalScopeProvider? scopeProvider, TextWriter textWriter)
     {
         var message = logEntry.Formatter(logEntry.State, logEntry.Exception);
