@@ -26,9 +26,10 @@ public static class ConsoleUi
             Console.ForegroundColor = ConsoleColor.Gray;
             Console.Error.Write(" Status: ");
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.Error.WriteLine("Ready, waiting for MCP client over STDIO");
+            Console.Error.WriteLine("Ready, waiting for MCP client over HTTP (Streamable)");
 
             Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Error.WriteLine(" Endpoint: http://localhost:5000/mcp");
             Console.Error.WriteLine($" PID    : {Environment.ProcessId}");
             Console.Error.WriteLine($" Machine: {Environment.MachineName}");
             Console.Error.WriteLine();

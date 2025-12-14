@@ -28,9 +28,11 @@ builder.Services.AddMcpServer().
 
 var app = builder.Build();
 
+const string mcpRoutePrefix = "/mcp";
+
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments("/sse") || context.Request.Path.StartsWithSegments("/messages"))
+    if (context.Request.Path.StartsWithSegments(mcpRoutePrefix))
     {
         var apiKey = context.Request.Query["apiKey"].FirstOrDefault()
                      ?? context.Request.Headers["X-API-Key"].FirstOrDefault();
@@ -46,7 +48,7 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.MapMcp();
+app.MapMcp(mcpRoutePrefix);
 
 var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("McpServer.Startup");
 
