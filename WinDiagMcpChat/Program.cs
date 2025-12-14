@@ -274,7 +274,7 @@ var clientOptions = new McpClientOptions
 var mcpClient = await McpClient.CreateAsync(
     new HttpClientTransport(new HttpClientTransportOptions
     {
-        Endpoint = new Uri("http://localhost:5000/sse?apiKey=secure-mcp-key")
+        Endpoint = new Uri("http://localhost:5000/mcp?apiKey=secure-mcp-key")
     }),
     clientOptions);
 

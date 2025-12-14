@@ -211,7 +211,7 @@ Teaching points:
 
 **Implemented:**
 - ✅ Converted `WinDiagMcpServer` to ASP.NET Core
-- ✅ Implemented HTTP/SSE transport
+- ✅ Implemented HTTP streaming transport
 - ✅ Added API Key authentication middleware
 - ✅ Updated `WinDiagMcpChat` to use `HttpClientTransport`
 - ✅ Configured `WinDiagMcpChat` to launch server in separate window
