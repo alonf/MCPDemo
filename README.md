@@ -9,7 +9,7 @@ This is a **production-ready MCP server** with:
 - ✅ **Resources**: Event log snapshot resources with pagination support
 - ✅ **Prompts**: AI-guided diagnostic workflows
 - ✅ **AI Chat Client**: Interactive diagnostics with Azure OpenAI
-- ✅ STDIO transport (standard input/output)
+- ✅ Streamable HTTP transport (`/mcp`)
 - ✅ .NET 10 implementation
 - ✅ Multiple testing methods
 - ✅ C# MCP client implementation
@@ -23,14 +23,16 @@ Perfect for learning MCP concepts and building AI-powered diagnostics!
 dotnet build
 ```
 
-### 2. Test with mcp-cli (Command Line)
+### 2. Quick Test Script (No LLM)
 ```powershell
-# List available tools
-mcp-cli tools --server windiag --config-file server_config.json
-
-# Execute a tool
-mcp-cli cmd --server windiag --config-file server_config.json --tool get_system_info
+./test-mcp-server.ps1
 ```
+
+This runs a full smoke test:
+- Builds the server
+- Starts it locally
+- Discovers tools
+- Executes `get_system_info`
 
 ### 3. Test with MCP Inspector (Visual Interface)
 ```powershell
@@ -127,8 +129,8 @@ MCP Prompts provide AI-guided diagnostic workflows:
 
 **Usage Example**:
 ```
-Ask Claude: "Do a system health check"
-Claude will:
+Ask the chat client: "Do a system health check"
+It will:
 1. Retrieve the DiagnoseSystemHealth prompt
 2. Follow the step-by-step workflow
 3. Call get_all_processes
@@ -155,9 +157,8 @@ Interactive console chat client with:
 
 | Method | Visual | Interactive | LLM | Prompts | Best For |
 |--------|--------|-------------|-----|---------|----------|
-| **mcp-cli** | ❌ No | ❌ No | ❌ No | ❌ No | Quick tests, CI/CD |
+| **test-mcp-server.ps1** | ❌ No | ❌ No | ❌ No | ❌ No | Quick tests, automation |
 | **MCP Inspector** | ✅ Yes | ✅ Yes | ❌ No | ✅ Yes | Development, debugging |
-| **Claude Desktop** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | Demos, production |
 | **WinDiagMcpChat** | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes | Custom client dev |
 
 ## Project Structure
@@ -178,21 +179,16 @@ MCPDemo/
 │   └── Infrastructure/                  # Console UI, Win32 API
 ├── WinDiagMcpChat/                      # AI-powered chat client
 │   └── Program.cs                       # Azure OpenAI integration
-├── server_config.json                   # MCP configuration
-├── setup-claude-desktop.ps1             # Claude Desktop setup
 ├── launch-inspector.ps1                 # Launch Inspector
 └── docs/                                # Documentation
-    ├── MCP_DEMO_Roadmap.md             # Development roadmap
-    ├── CLAUDE_DESKTOP_SETUP.md         # Claude Desktop guide
-    └── MCP_INSPECTOR_GUIDE.md          # Inspector guide
+  ├── TESTING.md                      # How to test (script + Inspector)
+  └── MCPDemoRoadmap.md             # Development roadmap
 ```
 
 ## Requirements
 
 - .NET 10 SDK
 - Node.js 16+ (for Inspector)
-- Python 3.8+ (for mcp-cli)
-- Claude Desktop (for LLM integration)
 - Azure OpenAI (for WinDiagMcpChat)
 
 ## Milestones Completed
@@ -209,10 +205,8 @@ MCPDemo/
 
 ## Documentation
 
-- **[MCP_DEMO_Roadmap.md](docs/MCP_DEMO_Roadmap.md)** - Development roadmap
-- **[CLAUDE_DESKTOP_SETUP.md](docs/CLAUDE_DESKTOP_SETUP.md)** - Claude Desktop integration ⭐
-- **[MCP_INSPECTOR_GUIDE.md](docs/MCP_INSPECTOR_GUIDE.md)** - Inspector guide
-- **[MCP_TESTING_GUIDE.md](docs/MCP_TESTING_GUIDE.md)** - Complete testing guide
+- **[TESTING.md](docs/TESTING.md)** - How to test (script + Inspector)
+- **[MCPDemoRoadmap.md](docs/MCPDemoRoadmap.md)** - Development roadmap
 
 ## Key Features
 
