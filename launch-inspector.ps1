@@ -59,7 +59,7 @@ try {
     Write-Host "Starting MCP Inspector..." -ForegroundColor White
     Write-Host ""
     Write-Host "This will:" -ForegroundColor Cyan
-    Write-Host "  1. Connect to the running MCP server (HTTP/SSE)" -ForegroundColor Gray
+    Write-Host "  1. Connect to the running MCP server (HTTP streaming)" -ForegroundColor Gray
     Write-Host "  2. Launch MCP Inspector web UI" -ForegroundColor Gray
     Write-Host "  3. Open your browser" -ForegroundColor Gray
     Write-Host ""
@@ -77,7 +77,7 @@ try {
     $env:DANGEROUSLY_OMIT_AUTH = "true"
 
     # Launch inspector connecting to the HTTP endpoint
-    mcp-inspector --server-url "http://localhost:5000/sse?apiKey=secure-mcp-key"
+    mcp-inspector --transport http --server-url "http://localhost:5000/mcp?apiKey=secure-mcp-key" --header "X-API-Key: secure-mcp-key"
 }
 finally {
     if ($serverProcess -and -not $serverProcess.HasExited) {

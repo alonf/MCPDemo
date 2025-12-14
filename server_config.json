@@ -1,7 +1,0 @@
-{
-  "mcpServers": {
-    "windiag": {
-      "url": "http://localhost:5000/sse?apiKey=secure-mcp-key"
-    }
-  }
-}

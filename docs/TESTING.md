@@ -1,66 +1,58 @@
 # Testing Guide
 
-## Quick Start - Three Testing Methods
+This repo supports two reliable ways to test the WinDiag MCP Server (Streamable HTTP at `/mcp` with API key):
 
-### 1. mcp-cli (Command Line) ⚡
+1. **Automated smoke test script** (fast, automatable)
+2. **MCP Inspector** (visual UI, best for development/debugging)
 
-Fastest way to verify your MCP server works:
+## 1) Automated Smoke Test Script ⚡
+
+Fastest way to verify the server works end-to-end (no LLM required):
 
 ```powershell
-# Build
-dotnet build
-
-# List tools
-mcp-cli tools --server windiag --config-file server_config.json
-
-# Execute tool
-mcp-cli cmd --server windiag --config-file server_config.json --tool get_system_info
+./test-mcp-server.ps1
 ```
 
-**Perfect for**: Development, CI/CD, quick verification
+This script:
+1. Builds the server
+2. Starts it locally
+3. Performs an MCP handshake
+4. Discovers tools
+5. Executes `get_system_info`
 
-### 2. MCP Inspector (Visual) 🔍
+Use this for quick verification and automation.
 
-Interactive web interface for exploring and testing:
+## 2) MCP Inspector (Visual) 🔍
+
+Inspector is the best way to explore tools/resources/prompts and to debug protocol issues visually.
+
+### Install (one-time)
 
 ```powershell
-# Install (one-time)
 npm install -g @modelcontextprotocol/inspector
-
-# Launch
-.\launch-inspector.ps1
 ```
 
-**In the browser:**
-1. Click **"Connect"** in left panel
-2. Click **"Tools"** tab at top
-3. Select **"get_system_info"**
-4. Click **"Call Tool"**
-5. See formatted JSON response!
-
-**Perfect for**: Development, debugging, learning MCP
-
-### 3. HTTP/SSE (Direct Protocol) 🔧
-
-Test the HTTP/SSE protocol directly:
+### Launch
 
 ```powershell
-# Start server manually
-dotnet run --project WinDiagMcpServer/WinDiagMcpServer.csproj -- --urls=http://localhost:5000
-
-# In another terminal, use curl or similar to connect to SSE endpoint
-curl "http://localhost:5000/sse?apiKey=secure-mcp-key"
+./launch-inspector.ps1
 ```
 
-**Perfect for**: Understanding the protocol, debugging, remote access
+### In the browser
+
+1. Click **Connect**
+2. Open the **Tools** tab
+3. Select **get_system_info**
+4. Click **Call Tool**
+
+Tip: The **Logs** tab is great for inspecting raw JSON-RPC requests/responses.
 
 ## Comparison
 
 | Method | Setup | Visual UI | Real-time | Best For |
 |--------|-------|-----------|-----------|----------|
-| **mcp-cli** | ⭐ Easy | ❌ No | ❌ No | Quick tests |
+| **test-mcp-server.ps1** | ⭐ Easy | ❌ No | ❌ No | Quick tests |
 | **Inspector** | ⭐⭐ Medium | ✅ Yes | ✅ Yes | Learning |
-| **HTTP/SSE** | ⭐⭐ Medium | ❌ No | ✅ Yes | Protocol study |
 
 ## Automated Testing
 
@@ -104,10 +96,10 @@ dotnet build
 dotnet run --project WinDiagMcpServer/WinDiagMcpServer.csproj
 ```
 
-### Tool Not Found
-- Verify `server_config.json` path is correct
-- Check .NET SDK is in PATH
-- Rebuild: `dotnet clean && dotnet build`
+### Tools Not Showing Up
+- Rebuild the server: `dotnet clean; dotnet build`
+- Re-run `./test-mcp-server.ps1` to confirm the server responds
+- In Inspector, reconnect and check the **Logs** tab for errors
 
 ### Inspector Can't Connect
 - Make sure you clicked "Connect" button
@@ -115,18 +107,26 @@ dotnet run --project WinDiagMcpServer/WinDiagMcpServer.csproj
 - Look at "Server Notifications" for errors
 - Try restarting: Ctrl+C and run `.\launch-inspector.ps1` again
 
+### Inspector Won't Start
+- Confirm Node.js is installed: `node --version` (16+)
+- Reinstall Inspector: `npm install -g @modelcontextprotocol/inspector`
+
+### Browser Doesn't Open
+- Manually open: `http://localhost:5173`
+
+### Port Already In Use
+- Inspector uses port `5173` by default
+- Stop the other process using that port, then re-run `./launch-inspector.ps1`
+
 ## For CI/CD
 
 ```yaml
 # Example GitHub Actions
 - name: Test MCP Server
   run: |
-    dotnet build
-    mcp-cli tools --server windiag --config-file server_config.json
-    mcp-cli cmd --server windiag --config-file server_config.json --tool get_system_info
+    pwsh -File ./test-mcp-server.ps1
 ```
 
 ## Resources
 
-- [MCP Inspector Guide](MCP_INSPECTOR_GUIDE.md) - Detailed Inspector usage
 - [MCP Specification](https://modelcontextprotocol.io/) - Official protocol docs
