@@ -65,16 +65,73 @@ Write-Host ""
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
-# Set environment variable to disable authentication for local development
-$env:DANGEROUSLY_OMIT_AUTH = "true"
+# Inspector's local proxy server uses port 6277. If a previous Inspector instance is still running,
+# it can leave a node.exe process listening on that port and prevent new launches.
+$proxyPort = 6277
+try {
+    $listener = Get-NetTCPConnection -LocalPort $proxyPort -State Listen -ErrorAction Stop | Select-Object -First 1
+} catch {
+    $listener = $null
+}
 
-# Use forward slashes which work on Windows and avoid escaping issues
-# Convert backslashes to forward slashes for cross-platform compatibility
-$projectPath = "WinDiagMcpServer/WinDiagMcpServer.csproj"
+if ($null -ne $listener) {
+    $owningProcessId = $listener.OwningProcess
+    Write-Host "Detected port $proxyPort already in use (PID $owningProcessId)." -ForegroundColor Yellow
 
-Write-Host "Project path: $projectPath" -ForegroundColor DarkGray
+    $proc = $null
+    try { $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$owningProcessId" -ErrorAction Stop } catch { }
+
+    $looksLikeInspector = $false
+    if ($null -ne $proc -and $null -ne $proc.CommandLine) {
+        if ($proc.CommandLine -match "modelcontextprotocol" -and $proc.CommandLine -match "inspector" -and $proc.CommandLine -match "index\\.js") {
+            $looksLikeInspector = $true
+        }
+    }
+
+    if ($looksLikeInspector) {
+        Write-Host "Stopping previous MCP Inspector process..." -ForegroundColor Yellow
+        try {
+            Stop-Process -Id $owningProcessId -Force -ErrorAction Stop
+            Start-Sleep -Milliseconds 500
+        } catch {
+            Write-Host "ERROR: Failed to stop the previous MCP Inspector process (PID $owningProcessId)." -ForegroundColor Red
+            Write-Host "Close the existing Inspector window or run: Stop-Process -Id $owningProcessId -Force" -ForegroundColor Yellow
+            pause
+            exit 1
+        }
+    } elseif ($null -ne $proc -and $proc.Name -eq "node.exe") {
+        Write-Host "Port $proxyPort is held by node.exe (PID $owningProcessId)." -ForegroundColor Yellow
+        $answer = Read-Host "Stop this node.exe process and continue? (Y/N)"
+        if ($answer -match '^(y|yes)$') {
+            try {
+                Stop-Process -Id $owningProcessId -Force -ErrorAction Stop
+                Start-Sleep -Milliseconds 500
+            } catch {
+                Write-Host "ERROR: Failed to stop node.exe (PID $owningProcessId)." -ForegroundColor Red
+                pause
+                exit 1
+            }
+        } else {
+            Write-Host "Aborted. Please free port $proxyPort and retry." -ForegroundColor Red
+            pause
+            exit 1
+        }
+    } else {
+        Write-Host "Port $proxyPort is in use by a non-Inspector process (PID $owningProcessId)." -ForegroundColor Red
+        Write-Host "Please free the port and retry. You can inspect it with:" -ForegroundColor Yellow
+        Write-Host "  netstat -ano | findstr :$proxyPort" -ForegroundColor DarkGray
+        pause
+        exit 1
+    }
+}
+
+# Launch inspector with STDIO transport using the local config file.
+# This matches the Inspector CLI help and keeps the command line simple for users.
+$configPath = "server_config.json"
+$serverName = "windiag"
+
+Write-Host "Config: $configPath" -ForegroundColor DarkGray
+Write-Host "Server: $serverName" -ForegroundColor DarkGray
 Write-Host ""
 
-# Launch inspector with STDIO transport
-# Use -- to separate inspector options from the command to run
-mcp-inspector -- dotnet run --project $projectPath
+mcp-inspector --transport stdio --config $configPath --server $serverName
