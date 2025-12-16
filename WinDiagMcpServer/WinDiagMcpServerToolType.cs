@@ -1,8 +1,10 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using ModelContextProtocol.Server;
 
 namespace WinDiagMcpServer;
+
+// ReSharper disable UnusedMember.Global
 
 /// <summary>
 /// MCP server tool type for Windows diagnostics operations.

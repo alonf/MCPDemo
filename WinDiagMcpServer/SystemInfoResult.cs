@@ -1,7 +1,3 @@
-﻿using System.ComponentModel;
-using System.Runtime.InteropServices;
-using ModelContextProtocol.Server;
-
 namespace WinDiagMcpServer;
 
 /// <summary>
@@ -15,7 +11,7 @@ public sealed record SystemInfoResult
     public string MachineName { get; init; } = string.Empty;
 
     /// <summary>
-    /// Gets the current user name.
+    /// Gets the current username.
     /// </summary>
     public string UserName { get; init; } = string.Empty;
 
