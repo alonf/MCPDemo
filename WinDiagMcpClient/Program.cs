@@ -2,7 +2,6 @@
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Agents.AI;
-using Microsoft.Extensions.AI;
 using OpenAI;
 using ModelContextProtocol.Client;
 
@@ -14,7 +13,7 @@ Console.WriteLine();
 
 var endpoint = new Uri("https://alonlecturedemo-resource.cognitiveservices.azure.com/");
 var credential = new DefaultAzureCredential();
-string deploymentName = "model-router";
+var deploymentName = "model-router";
 
 var solutionRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
 var projectPath = Path.Combine(solutionRoot, "WinDiagMcpServer", "WinDiagMcpServer.csproj");
@@ -39,7 +38,9 @@ var mcpClient = await McpClient.CreateAsync(
 
 // List all available tools from the MCP server.
 Console.WriteLine("Available tools:");
+// ReSharper disable SuggestVarOrType_Elsewhere
 IList<McpClientTool> tools = await mcpClient.ListToolsAsync();
+// ReSharper disable SuggestVarOrType_SimpleTypes
 foreach (McpClientTool tool in tools)
 {
     Console.WriteLine($"{tool}");
@@ -54,9 +55,9 @@ AIAgent agent = new AzureOpenAIClient(endpoint, credential)
                         You have access to Windows diagnostics tools through the MCP servers.
                         Be concise and helpful in your responses.",
         name: "ComputerAnalyzer",
-        tools: [.. tools.Cast<AITool>()]);
+        tools: [.. tools]);
 
-string prompt = "What is the system information?";
+var prompt = "What is the system information?";
 
 var agentResponse = await agent.RunAsync(prompt);
 
