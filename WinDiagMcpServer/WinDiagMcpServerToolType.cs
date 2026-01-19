@@ -41,23 +41,20 @@ public partial class WinDiagMcpServerToolType
         }
     }
 
-    /// <summary>
-    /// Gets the system uptime based on the tick count.
-    /// </summary>
-    /// <returns>A <see cref="TimeSpan"/> representing how long the system has been running.</returns>
-    private static TimeSpan GetSystemUptime()
-    {
-        long milliseconds = Environment.TickCount64;
-        return TimeSpan.FromMilliseconds(milliseconds);
-    }
-
     [McpServerTool]
     [Description("Get the list of processes. Foreach process: Name and Process Id")]
     public partial List<BasicProcessInfo> GetProcessList()
     {
-        return Process.GetProcesses()
-            .Select(p => new BasicProcessInfo { Name = p.ProcessName, Id = p.Id })
-            .ToList();
+        try
+        {
+            return Process.GetProcesses()
+                .Select(p => new BasicProcessInfo { Name = p.ProcessName, Id = p.Id })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            throw new McpException("Failed to retrieve process list.", ex);
+        }
     }
 
     [McpServerTool]
@@ -67,8 +64,15 @@ public partial class WinDiagMcpServerToolType
         [Description("Optional: The page number for pagination.")] int? pageNumber = null,
         [Description("Optional: The number of process entries to include per page.")] int? pageSize = null)
     {
-        var simpleProcessName = Path.GetFileNameWithoutExtension(processName);
-        return GetProcesses(() => Process.GetProcessesByName(simpleProcessName), pageNumber, pageSize);
+        try
+        {
+            var simpleProcessName = Path.GetFileNameWithoutExtension(processName);
+            return GetProcesses(() => Process.GetProcessesByName(simpleProcessName), pageNumber, pageSize);
+        }
+        catch (Exception ex)
+        {
+            throw new McpException($"Failed to retrieve process by name '{processName}'.", ex);
+        }
     }
 
     [McpServerTool]
@@ -76,26 +80,32 @@ public partial class WinDiagMcpServerToolType
     public ProcessInfoResult GetProcessById(
         [Description("The unique identifier of the process to retrieve information about.")] int processId)
     {
-        var result = new ProcessInfoResult();
         try
         {
             var process = Process.GetProcessById(processId);
-            result.Process = GetProcessInfo(process);
+            return new ProcessInfoResult
+            {
+                Process = GetProcessInfo(process)
+            };
         }
-        catch (ArgumentException)
+        catch (ArgumentException ex)
         {
-            result.HasError = true;
-            result.ErrorMessage = $"No process found with the ID '{processId}'.";
-            result.HttpStatusCode = 404;
+            throw new McpException($"No process found with the ID '{processId}'.", ex);
         }
         catch (Exception ex)
         {
-            result.HasError = true;
-            result.ErrorMessage = $"Error retrieving process information for ID '{processId}': {ex.Message}";
-            result.HttpStatusCode = 500;
+            throw new McpException($"Error retrieving process information for ID '{processId}'.", ex);
         }
+    }
 
-        return result;
+    /// <summary>
+    /// Gets the system uptime based on the tick count.
+    /// </summary>
+    /// <returns>A <see cref="TimeSpan"/> representing how long the system has been running.</returns>
+    private static TimeSpan GetSystemUptime()
+    {
+        long milliseconds = Environment.TickCount64;
+        return TimeSpan.FromMilliseconds(milliseconds);
     }
 
     private ProcessesInfoResult GetProcesses(Func<Process[]> getProcessesFunc, int? pageNumber = null, int? pageSize = null)
@@ -132,13 +142,10 @@ public partial class WinDiagMcpServerToolType
             }
 
             result.HasMore = endIndex < processes.Length;
-            result.HttpStatusCode = result.HasMore ? 206 : 200;
         }
         catch (Exception ex)
         {
-            result.HasError = true;
-            result.ErrorMessage = $"Error retrieving processes: {ex.Message}";
-            result.HttpStatusCode = 500;
+            throw new McpException($"Failed to retrieve processes: {ex.Message}", ex);
         }
 
         return result;
