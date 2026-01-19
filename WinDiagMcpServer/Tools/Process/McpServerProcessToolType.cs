@@ -11,6 +11,8 @@ namespace WinDiagMcpServer.Tools.Process;
 /// </summary>
 // ReSharper disable UnusedMember.Global
 [McpServerToolType]
+public partial class McpServerProcessToolType
+{
     private readonly ILogger<McpServerProcessToolType> _logger;
 
     public McpServerProcessToolType(ILogger<McpServerProcessToolType> logger)
