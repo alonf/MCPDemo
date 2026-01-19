@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace WinDiagMcpServer;
@@ -19,18 +20,25 @@ public partial class WinDiagMcpServerToolType
     [Description("Returns basic system information for diagnostics (machine name, OS, processors, framework).")]
     public partial SystemInfoResult GetSystemInfo()
     {
-        return new SystemInfoResult
+        try
         {
-            MachineName = Environment.MachineName,
-            UserName = Environment.UserName,
-            OSDescription = RuntimeInformation.OSDescription,
-            OSArchitecture = RuntimeInformation.OSArchitecture.ToString(),
-            ProcessArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
-            ProcessorCount = Environment.ProcessorCount,
-            FrameworkDescription = RuntimeInformation.FrameworkDescription,
-            CurrentDirectory = Environment.CurrentDirectory,
-            SystemUpTime = GetSystemUptime()
-        };
+            return new SystemInfoResult
+            {
+                MachineName = Environment.MachineName,
+                UserName = Environment.UserName,
+                OSDescription = RuntimeInformation.OSDescription,
+                OSArchitecture = RuntimeInformation.OSArchitecture.ToString(),
+                ProcessArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                ProcessorCount = Environment.ProcessorCount,
+                FrameworkDescription = RuntimeInformation.FrameworkDescription,
+                CurrentDirectory = Environment.CurrentDirectory,
+                SystemUpTime = GetSystemUptime()
+            };
+        }
+        catch (Exception ex)
+        {
+            throw new McpException("Failed to retrieve system information.", ex);
+        }
     }
 
     /// <summary>
