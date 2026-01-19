@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
+using WinDiagMcpServer.Infrastructure;
+using WinDiagMcpServer.Resources.EventLog;
 
 ConsoleUi.RenderBanner();
 
@@ -30,23 +32,23 @@ var app = builder.Build();
 
 const string mcpRoutePrefix = "/mcp";
 
-//app.Use(async (context, next) =>
-//{
-//    if (context.Request.Path.StartsWithSegments(mcpRoutePrefix))
-//    {
-//        var apiKey = context.Request.Query["apiKey"].FirstOrDefault()
-//                     ?? context.Request.Headers["X-API-Key"].FirstOrDefault();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments(mcpRoutePrefix))
+    {
+        var apiKey = context.Request.Query["apiKey"].FirstOrDefault()
+                     ?? context.Request.Headers["X-API-Key"].FirstOrDefault();
 
-//        if (string.IsNullOrEmpty(apiKey) || apiKey != "secure-mcp-key")
-//        {
-//            context.Response.StatusCode = 401;
-//            await context.Response.WriteAsync("Unauthorized");
-//            return;
-//        }
-//    }
+        if (string.IsNullOrEmpty(apiKey) || apiKey != "secure-mcp-key")
+        {
+            context.Response.StatusCode = 401;
+            await context.Response.WriteAsync("Unauthorized");
+            return;
+        }
+    }
 
-//    await next();
-//});
+    await next();
+});
 
 app.MapMcp(mcpRoutePrefix);
 
