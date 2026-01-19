@@ -4,6 +4,7 @@ using ModelContextProtocol.Server;
 
 namespace WinDiagMcpServer;
 
+#pragma warning disable S2325 // Make 'ToMcpException' a static method.
 /// <summary>
 /// Provides extension methods for exception handling.
 /// </summary>

@@ -9,10 +9,6 @@ var builder = Host.CreateApplicationBuilder(args);
 var logLevel = ResolveLogLevel(Environment.GetEnvironmentVariable("MCP_LOG_LEVEL"));
 
 builder.Logging.ClearProviders();
-builder.Logging.AddConsole(options =>
-{
-    options.LogToStandardErrorThreshold = logLevel;
-});
 builder.Logging.AddJsonConsole(options =>
 {
     options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
@@ -22,6 +18,11 @@ builder.Logging.AddJsonConsole(options =>
     {
         Indented = false
     };
+});
+builder.Services.Configure<Microsoft.Extensions.Logging.Console.ConsoleLoggerOptions>(options =>
+{
+    // Force all logs to stderr to avoid polluting stdout (which breaks MCP protocol)
+    options.LogToStandardErrorThreshold = LogLevel.Trace;
 });
 builder.Logging.SetMinimumLevel(logLevel);
 

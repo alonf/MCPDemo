@@ -3,6 +3,7 @@ using System.Diagnostics.Eventing.Reader;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
+using WinDiagMcpServer;
 
 namespace WinDiagMcpServer.Tools.EventLog;
 
@@ -112,13 +113,13 @@ public partial class McpServerEventLogToolType
         {
             stopwatch.Stop();
             _logger.LogWarning(ex, "EventLogSnapshot request {RequestId} failed validation for log {LogName}", requestId, logName);
-            return ex.Message;
+            throw ex.ToMcpException($"EventLogSnapshot request failed validation for log '{logName}'");
         }
         catch (EventLogException ex)
         {
             stopwatch.Stop();
             _logger.LogError(ex, "EventLogSnapshot request {RequestId} encountered EventLog error for log {LogName}", requestId, logName);
-            return $"Event log error: {ex.Message}";
+            throw ex.ToMcpException($"EventLogSnapshot request encountered EventLog error for log '{logName}'");
         }
     }
 
@@ -130,16 +131,24 @@ public partial class McpServerEventLogToolType
     [Description("Get the list of all event log snapshot resource URIs and their XPath queries.")]
     public partial List<EventLogSnapshotResourceInfo> GetAllEventLogSnapshotResources()
     {
-        var resources = _snapshotStorage.GetAllSnapshots()
-            .Select(kvp => new EventLogSnapshotResourceInfo
-            {
-                ResourceUri = $"eventlog://snapshot/{kvp.Key}",
-                XPathQuery = kvp.Value.XPathQuery
-            })
-            .ToList();
+        try
+        {
+            var resources = _snapshotStorage.GetAllSnapshots()
+                .Select(kvp => new EventLogSnapshotResourceInfo
+                {
+                    ResourceUri = $"eventlog://snapshot/{kvp.Key}",
+                    XPathQuery = kvp.Value.XPathQuery
+                })
+                .ToList();
 
-        _logger.LogInformation("Listing {ResourceCount} event log snapshot resources", resources.Count);
-        return resources;
+            _logger.LogInformation("Listing {ResourceCount} event log snapshot resources", resources.Count);
+            return resources;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to list event log snapshot resources");
+            throw ex.ToMcpException("Failed to list event log snapshot resources");
+        }
     }
 
     private static void ValidateLogName(string logName)
