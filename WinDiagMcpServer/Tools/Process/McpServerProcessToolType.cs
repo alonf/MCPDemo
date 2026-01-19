@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 using DiagnosticsProcess = System.Diagnostics.Process;
 
@@ -10,8 +11,13 @@ namespace WinDiagMcpServer.Tools.Process;
 /// </summary>
 // ReSharper disable UnusedMember.Global
 [McpServerToolType]
-public class McpServerProcessToolType
-{
+    private readonly ILogger<McpServerProcessToolType> _logger;
+
+    public McpServerProcessToolType(ILogger<McpServerProcessToolType> logger)
+    {
+        _logger = logger;
+    }
+
     /// <summary>
     /// Returns basic system information for diagnostics (machine name, OS, processors, framework).
     /// </summary>
@@ -38,9 +44,20 @@ public class McpServerProcessToolType
     [Description("Get the list of processes. Foreach process: Name and Process Id")]
     public List<BasicProcessInfo> GetProcessList()
     {
-        return DiagnosticsProcess.GetProcesses()
-            .Select(p => new BasicProcessInfo { Name = p.ProcessName, Id = p.Id })
-            .ToList();
+        try
+        {
+            _logger.LogDebug("Retrieving process list");
+            var result = DiagnosticsProcess.GetProcesses()
+                .Select(p => new BasicProcessInfo { Name = p.ProcessName, Id = p.Id })
+                .ToList();
+            _logger.LogInformation("Successfully retrieved process list ({Count} processes)", result.Count);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve process list");
+            throw ex.ToMcpException("Failed to retrieve process list");
+        }
     }
 
     [McpServerTool]
@@ -51,34 +68,33 @@ public class McpServerProcessToolType
         [Description("Optional: The number of process entries to include per page.")] int? pageSize = null)
     {
         var simpleProcessName = Path.GetFileNameWithoutExtension(processName);
-        return GetProcesses(() => DiagnosticsProcess.GetProcessesByName(simpleProcessName), pageNumber, pageSize);
+        return GetProcesses(() => DiagnosticsProcess.GetProcessesByName(simpleProcessName), pageNumber, pageSize, $"name '{processName}'");
     }
 
     [McpServerTool]
     [Description("Retrieves detailed information about a single process identified by its unique process ID.")]
-    public ProcessInfoResult GetProcessById(
+    public ProcessInfo GetProcessById(
         [Description("The unique identifier of the process to retrieve information about.")] int processId)
     {
-        var result = new ProcessInfoResult();
         try
         {
+            _logger.LogDebug("Retrieving process by ID {ProcessId}", processId);
             var process = DiagnosticsProcess.GetProcessById(processId);
-            result.Process = GetProcessInfo(process);
+            var result = GetProcessInfo(process);
+
+            _logger.LogInformation("Successfully retrieved process info for ID {ProcessId}", processId);
+            return result;
         }
-        catch (ArgumentException)
+        catch (ArgumentException ex)
         {
-            result.HasError = true;
-            result.ErrorMessage = $"No process found with the ID '{processId}'.";
-            result.HttpStatusCode = 404;
+            _logger.LogWarning(ex, "Process ID {ProcessId} not found", processId);
+            throw ex.ToMcpException($"No process found with the ID '{processId}'");
         }
         catch (Exception ex)
         {
-            result.HasError = true;
-            result.ErrorMessage = $"Error retrieving process information for ID '{processId}': {ex.Message}";
-            result.HttpStatusCode = 500;
+            _logger.LogError(ex, "Error retrieving process info for ID {ProcessId}", processId);
+            throw ex.ToMcpException($"Error retrieving process information for ID '{processId}'");
         }
-
-        return result;
     }
 
     /// <summary>
@@ -91,7 +107,7 @@ public class McpServerProcessToolType
         return TimeSpan.FromMilliseconds(milliseconds);
     }
 
-    private ProcessesInfoResult GetProcesses(Func<DiagnosticsProcess[]> getProcessesFunc, int? pageNumber = null, int? pageSize = null)
+    private ProcessesInfoResult GetProcesses(Func<DiagnosticsProcess[]> getProcessesFunc, int? pageNumber, int? pageSize, string context = "processes")
     {
         var result = new ProcessesInfoResult();
 
