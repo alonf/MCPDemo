@@ -4,6 +4,8 @@ using System.Text;
 
 namespace WinDiagMcpServer;
 
+#pragma warning disable SA1201 // A enum should not follow a struct
+
 // ReSharper disable MemberCanBePrivate.Local
 // ReSharper disable FieldCanBeMadeReadOnly.Local
 // ReSharper disable InconsistentNaming

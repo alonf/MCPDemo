@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
@@ -12,6 +13,13 @@ namespace WinDiagMcpServer;
 [McpServerToolType]
 public partial class WinDiagMcpServerToolType
 {
+    private readonly ILogger<WinDiagMcpServerToolType> _logger;
+
+    public WinDiagMcpServerToolType(ILogger<WinDiagMcpServerToolType> logger)
+    {
+        _logger = logger;
+    }
+
     /// <summary>
     /// Returns basic system information for diagnostics (machine name, OS, processors, framework).
     /// </summary>
@@ -22,7 +30,8 @@ public partial class WinDiagMcpServerToolType
     {
         try
         {
-            return new SystemInfoResult
+            _logger.LogDebug("Retrieving system information");
+            var result = new SystemInfoResult
             {
                 MachineName = Environment.MachineName,
                 UserName = Environment.UserName,
@@ -34,10 +43,13 @@ public partial class WinDiagMcpServerToolType
                 CurrentDirectory = Environment.CurrentDirectory,
                 SystemUpTime = GetSystemUptime()
             };
+            _logger.LogInformation("Successfully retrieved system information");
+            return result;
         }
         catch (Exception ex)
         {
-            throw new McpException("Failed to retrieve system information.", ex);
+            _logger.LogError(ex, "Failed to retrieve system information");
+            throw ex.ToMcpException("Failed to retrieve system information");
         }
     }
 
@@ -47,13 +59,17 @@ public partial class WinDiagMcpServerToolType
     {
         try
         {
-            return Process.GetProcesses()
+            _logger.LogDebug("Retrieving process list");
+            var result = Process.GetProcesses()
                 .Select(p => new BasicProcessInfo { Name = p.ProcessName, Id = p.Id })
                 .ToList();
+            _logger.LogInformation("Successfully retrieved process list ({Count} processes)", result.Count);
+            return result;
         }
         catch (Exception ex)
         {
-            throw new McpException("Failed to retrieve process list.", ex);
+            _logger.LogError(ex, "Failed to retrieve process list");
+            throw ex.ToMcpException("Failed to retrieve process list");
         }
     }
 
@@ -64,15 +80,9 @@ public partial class WinDiagMcpServerToolType
         [Description("Optional: The page number for pagination.")] int? pageNumber = null,
         [Description("Optional: The number of process entries to include per page.")] int? pageSize = null)
     {
-        try
-        {
-            var simpleProcessName = Path.GetFileNameWithoutExtension(processName);
-            return GetProcesses(() => Process.GetProcessesByName(simpleProcessName), pageNumber, pageSize);
-        }
-        catch (Exception ex)
-        {
-            throw new McpException($"Failed to retrieve process by name '{processName}'.", ex);
-        }
+        var simpleProcessName = Path.GetFileNameWithoutExtension(processName);
+        // Delegate to GetProcesses which handles logging and error wrapping
+        return GetProcesses(() => Process.GetProcessesByName(simpleProcessName), pageNumber, pageSize, $"name '{processName}'");
     }
 
     [McpServerTool]
@@ -82,19 +92,24 @@ public partial class WinDiagMcpServerToolType
     {
         try
         {
+            _logger.LogDebug("Retrieving process by ID {ProcessId}", processId);
             var process = Process.GetProcessById(processId);
-            return new ProcessInfoResult
+            var result = new ProcessInfoResult
             {
                 Process = GetProcessInfo(process)
             };
+            _logger.LogInformation("Successfully retrieved process info for ID {ProcessId}", processId);
+            return result;
         }
         catch (ArgumentException ex)
         {
-            throw new McpException($"No process found with the ID '{processId}'.", ex);
+            _logger.LogWarning(ex, "Process ID {ProcessId} not found", processId);
+            throw ex.ToMcpException($"No process found with the ID '{processId}'");
         }
         catch (Exception ex)
         {
-            throw new McpException($"Error retrieving process information for ID '{processId}'.", ex);
+            _logger.LogError(ex, "Error retrieving process info for ID {ProcessId}", processId);
+            throw ex.ToMcpException($"Error retrieving process information for ID '{processId}'");
         }
     }
 
@@ -108,7 +123,7 @@ public partial class WinDiagMcpServerToolType
         return TimeSpan.FromMilliseconds(milliseconds);
     }
 
-    private ProcessesInfoResult GetProcesses(Func<Process[]> getProcessesFunc, int? pageNumber = null, int? pageSize = null)
+    private ProcessesInfoResult GetProcesses(Func<Process[]> getProcessesFunc, int? pageNumber, int? pageSize, string context = "processes")
     {
         var result = new ProcessesInfoResult();
 
@@ -130,6 +145,7 @@ public partial class WinDiagMcpServerToolType
 
         try
         {
+            _logger.LogDebug("Retrieving {Context} (Page {Page}, Size {Size})", context, actualPageNumber, actualPageSize);
             var processes = getProcessesFunc();
             result.TotalCount = processes.Length;
             int startIndex = (actualPageNumber - 1) * actualPageSize;
@@ -142,10 +158,12 @@ public partial class WinDiagMcpServerToolType
             }
 
             result.HasMore = endIndex < processes.Length;
+            _logger.LogInformation("Successfully retrieved {Count} items for {Context}", result.Processes.Count, context);
         }
         catch (Exception ex)
         {
-            throw new McpException($"Failed to retrieve processes: {ex.Message}", ex);
+            _logger.LogError(ex, "Failed to retrieve {Context}", context);
+            throw ex.ToMcpException($"Failed to retrieve {context}");
         }
 
         return result;
