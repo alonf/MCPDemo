@@ -13,11 +13,5 @@ public sealed record ProcessesInfoResult
     // ReSharper disable UnusedMember.Global
     public bool HasPageSizeTruncated { get; set; }
 
-    public bool HasError { get; set; }
-
-    public string ErrorMessage { get; set; } = string.Empty;
-
-    public int HttpStatusCode { get; set; }
-
     public int TotalCount { get; set; }
 }

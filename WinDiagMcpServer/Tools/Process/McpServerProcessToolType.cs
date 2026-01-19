@@ -1,46 +1,76 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
-using DiagnosticsProcess = System.Diagnostics.Process;
 
-namespace WinDiagMcpServer.Tools.Process;
+namespace WinDiagMcpServer;
 
 /// <summary>
 /// MCP server tool type for Windows diagnostics operations.
 /// </summary>
-// ReSharper disable UnusedMember.Global
 [McpServerToolType]
-public class McpServerProcessToolType
+public partial class McpServerProcessToolType
 {
+    private readonly ILogger<McpServerProcessToolType> _logger;
+
+    public McpServerProcessToolType(ILogger<McpServerProcessToolType> logger)
+    {
+        _logger = logger;
+    }
+
     /// <summary>
     /// Returns basic system information for diagnostics (machine name, OS, processors, framework).
     /// </summary>
     /// <returns>A <see cref="SystemInfoResult"/> containing system diagnostic information.</returns>
     [McpServerTool]
     [Description("Returns basic system information for diagnostics (machine name, OS, processors, framework).")]
-    public SystemInfoResult GetSystemInfo()
+    public partial SystemInfoResult GetSystemInfo()
     {
-        return new SystemInfoResult
+        try
         {
-            MachineName = Environment.MachineName,
-            UserName = Environment.UserName,
-            OSDescription = RuntimeInformation.OSDescription,
-            OSArchitecture = RuntimeInformation.OSArchitecture.ToString(),
-            ProcessArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
-            ProcessorCount = Environment.ProcessorCount,
-            FrameworkDescription = RuntimeInformation.FrameworkDescription,
-            CurrentDirectory = Environment.CurrentDirectory,
-            SystemUpTime = GetSystemUptime()
-        };
+            _logger.LogDebug("Retrieving system information");
+            var result = new SystemInfoResult
+            {
+                MachineName = Environment.MachineName,
+                UserName = Environment.UserName,
+                OSDescription = RuntimeInformation.OSDescription,
+                OSArchitecture = RuntimeInformation.OSArchitecture.ToString(),
+                ProcessArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                ProcessorCount = Environment.ProcessorCount,
+                FrameworkDescription = RuntimeInformation.FrameworkDescription,
+                CurrentDirectory = Environment.CurrentDirectory,
+                SystemUpTime = GetSystemUptime()
+            };
+            _logger.LogInformation("Successfully retrieved system information");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve system information");
+            throw ex.ToMcpException("Failed to retrieve system information");
+        }
     }
 
     [McpServerTool]
     [Description("Get the list of processes. Foreach process: Name and Process Id")]
-    public List<BasicProcessInfo> GetProcessList()
+    public partial List<BasicProcessInfo> GetProcessList()
     {
-        return DiagnosticsProcess.GetProcesses()
-            .Select(p => new BasicProcessInfo { Name = p.ProcessName, Id = p.Id })
-            .ToList();
+        try
+        {
+            _logger.LogDebug("Retrieving process list");
+            var result = Process.GetProcesses()
+                .Select(p => new BasicProcessInfo { Name = p.ProcessName, Id = p.Id })
+                .ToList();
+            _logger.LogInformation("Successfully retrieved process list ({Count} processes)", result.Count);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve process list");
+            throw ex.ToMcpException("Failed to retrieve process list");
+        }
     }
 
     [McpServerTool]
@@ -51,7 +81,7 @@ public class McpServerProcessToolType
         [Description("Optional: The number of process entries to include per page.")] int? pageSize = null)
     {
         var simpleProcessName = Path.GetFileNameWithoutExtension(processName);
-        return GetProcesses(() => DiagnosticsProcess.GetProcessesByName(simpleProcessName), pageNumber, pageSize);
+        return GetProcesses(() => Process.GetProcessesByName(simpleProcessName), pageNumber, pageSize, $"name '{processName}'");
     }
 
     [McpServerTool]
@@ -59,26 +89,27 @@ public class McpServerProcessToolType
     public ProcessInfoResult GetProcessById(
         [Description("The unique identifier of the process to retrieve information about.")] int processId)
     {
-        var result = new ProcessInfoResult();
         try
         {
-            var process = DiagnosticsProcess.GetProcessById(processId);
-            result.Process = GetProcessInfo(process);
+            _logger.LogDebug("Retrieving process by ID {ProcessId}", processId);
+            var process = Process.GetProcessById(processId);
+            var result = new ProcessInfoResult
+            {
+                Process = GetProcessInfo(process)
+            };
+            _logger.LogInformation("Successfully retrieved process info for ID {ProcessId}", processId);
+            return result;
         }
-        catch (ArgumentException)
+        catch (ArgumentException ex)
         {
-            result.HasError = true;
-            result.ErrorMessage = $"No process found with the ID '{processId}'.";
-            result.HttpStatusCode = 404;
+            _logger.LogWarning(ex, "Process ID {ProcessId} not found", processId);
+            throw ex.ToMcpException($"No process found with the ID '{processId}'");
         }
         catch (Exception ex)
         {
-            result.HasError = true;
-            result.ErrorMessage = $"Error retrieving process information for ID '{processId}': {ex.Message}";
-            result.HttpStatusCode = 500;
+            _logger.LogError(ex, "Error retrieving process info for ID {ProcessId}", processId);
+            throw ex.ToMcpException($"Error retrieving process information for ID '{processId}'");
         }
-
-        return result;
     }
 
     /// <summary>
@@ -87,11 +118,11 @@ public class McpServerProcessToolType
     /// <returns>A <see cref="TimeSpan"/> representing how long the system has been running.</returns>
     private static TimeSpan GetSystemUptime()
     {
-        var milliseconds = Environment.TickCount64;
+        long milliseconds = Environment.TickCount64;
         return TimeSpan.FromMilliseconds(milliseconds);
     }
 
-    private ProcessesInfoResult GetProcesses(Func<DiagnosticsProcess[]> getProcessesFunc, int? pageNumber = null, int? pageSize = null)
+    private ProcessesInfoResult GetProcesses(Func<Process[]> getProcessesFunc, int? pageNumber, int? pageSize, string context = "processes")
     {
         var result = new ProcessesInfoResult();
 
@@ -105,39 +136,39 @@ public class McpServerProcessToolType
             pageNumber = 1;
         }
 
-        var actualPageSize = pageSize.Value;
-        var actualPageNumber = pageNumber.Value;
+        int actualPageSize = pageSize.Value;
+        int actualPageNumber = pageNumber.Value;
 
         result.PageNumber = actualPageNumber;
         result.PageSize = actualPageSize;
 
         try
         {
+            _logger.LogDebug("Retrieving {Context} (Page {Page}, Size {Size})", context, actualPageNumber, actualPageSize);
             var processes = getProcessesFunc();
             result.TotalCount = processes.Length;
-            var startIndex = (actualPageNumber - 1) * actualPageSize;
-            var endIndex = Math.Min(startIndex + actualPageSize, processes.Length);
+            int startIndex = (actualPageNumber - 1) * actualPageSize;
+            int endIndex = Math.Min(startIndex + actualPageSize, processes.Length);
 
-            for (var i = startIndex; i < endIndex; i++)
+            for (int i = startIndex; i < endIndex; i++)
             {
                 var processInfo = GetProcessInfo(processes[i]);
                 result.Processes.Add(processInfo);
             }
 
             result.HasMore = endIndex < processes.Length;
-            result.HttpStatusCode = result.HasMore ? 206 : 200;
+            _logger.LogInformation("Successfully retrieved {Count} items for {Context}", result.Processes.Count, context);
         }
         catch (Exception ex)
         {
-            result.HasError = true;
-            result.ErrorMessage = $"Error retrieving processes: {ex.Message}";
-            result.HttpStatusCode = 500;
+            _logger.LogError(ex, "Failed to retrieve {Context}", context);
+            throw ex.ToMcpException($"Failed to retrieve {context}");
         }
 
         return result;
     }
 
-    private ProcessInfo GetProcessInfo(DiagnosticsProcess process)
+    private ProcessInfo GetProcessInfo(Process process)
     {
         try
         {
@@ -208,8 +239,8 @@ public class McpServerProcessToolType
 
     private int GetParentProcessId(int processId)
     {
-        var parentProcessId = 0;
-        var snapshotHandle = Win32Api.CreateToolhelp32Snapshot(Win32Api.SnapshotOptions.Process, 0);
+        int parentProcessId = 0;
+        IntPtr snapshotHandle = Win32Api.CreateToolhelp32Snapshot(Win32Api.SnapshotOptions.Process, 0);
         if (snapshotHandle != IntPtr.Zero)
         {
             var processEntry = new Win32Api.ProcessEntry32
