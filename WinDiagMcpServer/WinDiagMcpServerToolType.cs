@@ -21,27 +21,41 @@ public partial class WinDiagMcpServerToolType
     [Description("Returns basic system information for diagnostics (machine name, OS, processors, framework).")]
     public partial SystemInfoResult GetSystemInfo()
     {
-        return new SystemInfoResult
+        try
         {
-            MachineName = Environment.MachineName,
-            UserName = Environment.UserName,
-            OSDescription = RuntimeInformation.OSDescription,
-            OSArchitecture = RuntimeInformation.OSArchitecture.ToString(),
-            ProcessArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
-            ProcessorCount = Environment.ProcessorCount,
-            FrameworkDescription = RuntimeInformation.FrameworkDescription,
-            CurrentDirectory = Environment.CurrentDirectory,
-            SystemUpTime = GetSystemUptime()
-        };
+            return new SystemInfoResult
+            {
+                MachineName = Environment.MachineName,
+                UserName = Environment.UserName,
+                OSDescription = RuntimeInformation.OSDescription,
+                OSArchitecture = RuntimeInformation.OSArchitecture.ToString(),
+                ProcessArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                ProcessorCount = Environment.ProcessorCount,
+                FrameworkDescription = RuntimeInformation.FrameworkDescription,
+                CurrentDirectory = Environment.CurrentDirectory,
+                SystemUpTime = GetSystemUptime()
+            };
+        }
+        catch (Exception ex)
+        {
+            throw ex.ToMcpException("Failed to retrieve system information");
+        }
     }
 
     [McpServerTool]
     [Description("Get the list of processes. Foreach process: Name and Process Id")]
     public partial List<BasicProcessInfo> GetProcessList()
     {
-        return Process.GetProcesses()
-            .Select(p => new BasicProcessInfo { Name = p.ProcessName, Id = p.Id })
-            .ToList();
+        try
+        {
+            return Process.GetProcesses()
+                .Select(p => new BasicProcessInfo { Name = p.ProcessName, Id = p.Id })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            throw ex.ToMcpException("Failed to retrieve process list");
+        }
     }
 
     [McpServerTool]
@@ -51,8 +65,15 @@ public partial class WinDiagMcpServerToolType
         [Description("Optional: The page number for pagination.")] int? pageNumber = null,
         [Description("Optional: The number of process entries to include per page.")] int? pageSize = null)
     {
-        var simpleProcessName = Path.GetFileNameWithoutExtension(processName);
-        return GetProcesses(() => Process.GetProcessesByName(simpleProcessName), pageNumber, pageSize);
+        try
+        {
+            var simpleProcessName = Path.GetFileNameWithoutExtension(processName);
+            return GetProcesses(() => Process.GetProcessesByName(simpleProcessName), pageNumber, pageSize);
+        }
+        catch (Exception ex)
+        {
+            throw ex.ToMcpException($"Failed to retrieve information for process '{processName}'");
+        }
     }
 
     [McpServerTool]
@@ -65,21 +86,16 @@ public partial class WinDiagMcpServerToolType
         {
             var process = Process.GetProcessById(processId);
             result.Process = GetProcessInfo(process);
+            return result;
         }
-        catch (ArgumentException)
+        catch (ArgumentException ex)
         {
-            result.HasError = true;
-            result.ErrorMessage = $"No process found with the ID '{processId}'.";
-            result.HttpStatusCode = 404;
+            throw ex.ToMcpException($"No process found with the ID '{processId}'");
         }
         catch (Exception ex)
         {
-            result.HasError = true;
-            result.ErrorMessage = $"Error retrieving process information for ID '{processId}': {ex.Message}";
-            result.HttpStatusCode = 500;
+            throw ex.ToMcpException($"Error retrieving process information for ID '{processId}'");
         }
-
-        return result;
     }
 
     /// <summary>
@@ -126,13 +142,10 @@ public partial class WinDiagMcpServerToolType
             }
 
             result.HasMore = endIndex < processes.Length;
-            result.HttpStatusCode = result.HasMore ? 206 : 200;
         }
         catch (Exception ex)
         {
-            result.HasError = true;
-            result.ErrorMessage = $"Error retrieving processes: {ex.Message}";
-            result.HttpStatusCode = 500;
+            throw ex.ToMcpException($"Error retrieving processes");
         }
 
         return result;
