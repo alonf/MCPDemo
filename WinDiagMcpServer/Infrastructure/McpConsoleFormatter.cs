@@ -63,6 +63,7 @@ public class McpConsoleFormatter() : ConsoleFormatter(_formatName)
                 textWriter.Write(methodPart);
                 textWriter.Write("\x1b[0m");
                 textWriter.Write(postMatch);
+                textWriter.WriteLine();
             }
             else
             {

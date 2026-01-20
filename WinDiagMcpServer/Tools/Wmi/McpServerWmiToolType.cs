@@ -55,7 +55,7 @@ public class McpServerWmiToolType(ILogger<McpServerWmiToolType> logger)
         catch (Exception ex)
         {
             logger.LogError(ex, "Error executing WMI query: {Query}", query);
-            throw new InvalidOperationException($"Error executing WMI query: {ex.Message}", ex);
+            throw ex.ToMcpException($"Error executing WMI query ({query})");
         }
 
         return results;

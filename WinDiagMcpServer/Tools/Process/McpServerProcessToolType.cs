@@ -35,18 +35,26 @@ public partial class McpServerProcessToolType
     [Description("Returns basic system information for diagnostics (machine name, OS, processors, framework).")]
     public SystemInfoResult GetSystemInfo()
     {
-        return new SystemInfoResult
+        try
         {
-            MachineName = Environment.MachineName,
-            UserName = Environment.UserName,
-            OSDescription = RuntimeInformation.OSDescription,
-            OSArchitecture = RuntimeInformation.OSArchitecture.ToString(),
-            ProcessArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
-            ProcessorCount = Environment.ProcessorCount,
-            FrameworkDescription = RuntimeInformation.FrameworkDescription,
-            CurrentDirectory = Environment.CurrentDirectory,
-            SystemUpTime = GetSystemUptime()
-        };
+            return new SystemInfoResult
+            {
+                MachineName = Environment.MachineName,
+                UserName = Environment.UserName,
+                OSDescription = RuntimeInformation.OSDescription,
+                OSArchitecture = RuntimeInformation.OSArchitecture.ToString(),
+                ProcessArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                ProcessorCount = Environment.ProcessorCount,
+                FrameworkDescription = RuntimeInformation.FrameworkDescription,
+                CurrentDirectory = Environment.CurrentDirectory,
+                SystemUpTime = GetSystemUptime()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve system info");
+            throw ex.ToMcpException("Failed to retrieve system info");
+        }
     }
 
     [McpServerTool]
