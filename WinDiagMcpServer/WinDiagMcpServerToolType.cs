@@ -38,7 +38,7 @@ public partial class WinDiagMcpServerToolType
         }
         catch (Exception ex)
         {
-            throw new McpException("Failed to retrieve system information.", ex);
+            throw ex.ToMcpException("Failed to retrieve system information");
         }
     }
 
