@@ -40,88 +40,66 @@ public class McpConsoleFormatter() : ConsoleFormatter(_formatName)
         // Scopes
         scopeProvider?.ForEachScope(
             (scope, state) =>
-        {
-            state.Write(" => ");
-            state.Write(scope);
-        },
+            {
+                state.Write(" => ");
+                state.Write(scope);
+            },
             textWriter);
 
-        textWriter.Write(" ");
+        textWriter.Write(": ");
 
-        // Message with highlighting
-        var matches = _methodPattern.Matches(message);
-        if (matches.Count > 0)
+        // Highlighting method names in MCP requests
+        if (logEntry.Category == "ModelContextProtocol.Server.McpServer" && message.Contains("method '"))
         {
-            var lastIndex = 0;
-            foreach (Match match in matches)
+            var match = _methodPattern.Match(message);
+            if (match.Success)
             {
-                textWriter.Write(message.Substring(lastIndex, match.Index - lastIndex));
-                textWriter.Write("method '");
+                var preMatch = message.Substring(0, match.Index);
+                var methodPart = match.Value;
+                var postMatch = message.Substring(match.Index + match.Length);
 
-                var methodName = match.Groups[1].Value;
-                var color = GetMethodColor(methodName);
-
-                textWriter.Write(color);
-                textWriter.Write(methodName);
-                textWriter.Write("\x1b[0m"); // Reset
-                textWriter.Write("'");
-                lastIndex = match.Index + match.Length;
+                textWriter.Write(preMatch);
+                textWriter.Write("\x1b[36m"); // Cyan
+                textWriter.Write(methodPart);
+                textWriter.Write("\x1b[0m");
+                textWriter.Write(postMatch);
+                textWriter.WriteLine();
             }
-
-            textWriter.Write(message[lastIndex..]);
+            else
+            {
+                textWriter.WriteLine(message);
+            }
         }
         else
         {
-            textWriter.Write(message);
+            textWriter.WriteLine(message);
         }
 
-        textWriter.WriteLine();
+        if (logEntry.Exception != null)
+        {
+            textWriter.WriteLine(logEntry.Exception);
+        }
     }
 
-    private static string GetMethodColor(string methodName)
+    private static string GetLevelString(LogLevel logLevel) => logLevel switch
     {
-        if (methodName.StartsWith("tools/", StringComparison.OrdinalIgnoreCase))
-        {
-            return "\x1b[35m"; // Magenta
-        }
+        LogLevel.Trace => "[TRC]",
+        LogLevel.Debug => "[DBG]",
+        LogLevel.Information => "[INF]",
+        LogLevel.Warning => "[WRN]",
+        LogLevel.Error => "[ERR]",
+        LogLevel.Critical => "[CRT]",
+        _ => "[UNK]"
+    };
 
-        if (methodName.StartsWith("resources/", StringComparison.OrdinalIgnoreCase))
-        {
-            return "\x1b[34m"; // Blue
-        }
-
-        if (methodName.StartsWith("prompts/", StringComparison.OrdinalIgnoreCase))
-        {
-            return "\x1b[36m"; // Cyan
-        }
-
-        if (methodName.StartsWith("sampling/", StringComparison.OrdinalIgnoreCase))
-        {
-            return "\x1b[33m"; // Yellow
-        }
-
-        return "\x1b[32m"; // Green (default)
-    }
-
-    private static string GetLevelColor(LogLevel level) => level switch
+    private static string GetLevelColor(LogLevel logLevel) => logLevel switch
     {
         LogLevel.Trace => "\x1b[90m", // Gray
-        LogLevel.Debug => "\x1b[90m", // Gray
+        LogLevel.Debug => "\x1b[37m", // White
         LogLevel.Information => "\x1b[32m", // Green
         LogLevel.Warning => "\x1b[33m", // Yellow
         LogLevel.Error => "\x1b[31m", // Red
         LogLevel.Critical => "\x1b[41m\x1b[37m", // White on Red
         _ => "\x1b[39m" // Default
-    };
-
-    private static string GetLevelString(LogLevel level) => level switch
-    {
-        LogLevel.Trace => "trce",
-        LogLevel.Debug => "dbug",
-        LogLevel.Information => "info",
-        LogLevel.Warning => "warn",
-        LogLevel.Error => "fail",
-        LogLevel.Critical => "crit",
-        _ => level.ToString().ToLower()[..4]
     };
 }
