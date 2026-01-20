@@ -48,42 +48,50 @@ public class McpServerRegistryToolType(
         [Description("Filter string to include only matching keys and values (case-insensitive).")] string? filter = null,
         CancellationToken cancellationToken = default)
     {
-        // 1. Validate Roots
-        if (!rootsService.IsPathAllowed(hive, key))
+        try
         {
-            var allowed = string.Join(", ", rootsService.GetAllowedRoots());
-            throw new InvalidOperationException($"Access denied. The path '{hive}\\{key}' is not within the allowed roots. Please call the 'request_registry_access' tool to ask the user for permission. Currently allowed: {allowed}");
+            // 1. Validate Roots
+            if (!rootsService.IsPathAllowed(hive, key))
+            {
+                var allowed = string.Join(", ", rootsService.GetAllowedRoots());
+                throw new InvalidOperationException($"Access denied. The path '{hive}\\{key}' is not within the allowed roots. Please call the 'request_registry_access' tool to ask the user for permission. Currently allowed: {allowed}");
+            }
+
+            // 2. Parse Hive
+            var registryHive = ParseHive(hive);
+
+            // 3. Crawl Registry
+            var snapshotId = Guid.NewGuid().ToString("N");
+            var rootKeyDto = new RegistryKeyDto { Name = key };
+
+            using var baseKey = RegistryKey.OpenBaseKey(registryHive, RegistryView.Default);
+            using var subKey = baseKey.OpenSubKey(key);
+
+            if (subKey == null)
+            {
+                return $"Error: Key '{hive}\\{key}' not found.";
+            }
+
+            // If maxDepth is specified and > 0, imply recursion
+            if (maxDepth is > 0)
+            {
+                recursive = true;
+            }
+
+            await CrawlKeyAsync(server, subKey, rootKeyDto, recursive, 0, maxDepth, filter, cancellationToken);
+
+            // 4. Save Snapshot
+            var json = JsonSerializer.Serialize(rootKeyDto, new JsonSerializerOptions { WriteIndented = true });
+            snapshotStorage.AddSnapshot(snapshotId, hive, key, json);
+
+            // 5. Return Resource URI
+            return $"registry://snapshot/{snapshotId}";
         }
-
-        // 2. Parse Hive
-        var registryHive = ParseHive(hive);
-
-        // 3. Crawl Registry
-        var snapshotId = Guid.NewGuid().ToString("N");
-        var rootKeyDto = new RegistryKeyDto { Name = key };
-
-        using var baseKey = RegistryKey.OpenBaseKey(registryHive, RegistryView.Default);
-        using var subKey = baseKey.OpenSubKey(key);
-
-        if (subKey == null)
+        catch (Exception ex)
         {
-            return $"Error: Key '{hive}\\{key}' not found.";
+            logger.LogError(ex, "Failed to create registry snapshot for {Hive}\\{Key}", hive, key);
+            throw ex.ToMcpException($"Failed to snapshot registry key '{hive}\\{key}'");
         }
-
-        // If maxDepth is specified and > 0, imply recursion
-        if (maxDepth is > 0)
-        {
-            recursive = true;
-        }
-
-        await CrawlKeyAsync(server, subKey, rootKeyDto, recursive, 0, maxDepth, filter, cancellationToken);
-
-        // 4. Save Snapshot
-        var json = JsonSerializer.Serialize(rootKeyDto, new JsonSerializerOptions { WriteIndented = true });
-        snapshotStorage.AddSnapshot(snapshotId, hive, key, json);
-
-        // 5. Return Resource URI
-        return $"registry://snapshot/{snapshotId}";
     }
 
     /// <summary>
