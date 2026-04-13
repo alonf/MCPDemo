@@ -4,6 +4,7 @@ using Azure.Identity;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
+using OpenAI.Chat;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
@@ -227,7 +228,7 @@ if (mcpClient.ServerCapabilities.Prompts is not null)
 // Create AI Agent
 AIAgent agent = new AzureOpenAIClient(endpoint, credential)
     .GetChatClient(deploymentName)
-    .CreateAIAgent(
+    .AsAIAgent(
         instructions: $@"You are a helpful system diagnostics assistant.
                         You have access to Windows diagnostics tools via MCP.
                         
@@ -297,8 +298,8 @@ AIAgent agent = new AzureOpenAIClient(endpoint, credential)
         name: "WinDiagAgent",
         tools: allTools);
 
-// Create a new agent thread with history management
-var thread = agent.GetNewThread();
+// Create a new agent session with history management
+var session = await agent.CreateSessionAsync();
 
 Console.WriteLine("Agent ready. Type 'exit' to quit.");
 Console.WriteLine();
@@ -319,8 +320,8 @@ while (true)
 
     try
     {
-        // Run agent with thread - framework handles history automatically
-        var response = await agent.RunAsync(input, thread);
+        // Run agent with session - framework handles history automatically
+        var response = await agent.RunAsync(input, session);
         Console.WriteLine($"Agent: {response.Text}");
     }
     catch (Exception ex)
