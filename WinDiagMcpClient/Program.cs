@@ -3,6 +3,7 @@ using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Agents.AI;
 using OpenAI;
+using OpenAI.Chat;
 using ModelContextProtocol.Client;
 
 Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
@@ -50,7 +51,7 @@ Console.WriteLine();
 // Create AI Agent with MCP tools (after status)
 AIAgent agent = new AzureOpenAIClient(endpoint, credential)
     .GetChatClient(deploymentName)
-    .CreateAIAgent(
+    .AsAIAgent(
         instructions: @"You are a helpful computer analysis and problem solving assistant.
                         You have access to Windows diagnostics tools through the MCP servers.
                         Be concise and helpful in your responses.",
