@@ -9,6 +9,7 @@ using Microsoft.Extensions.AI;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using OpenAI;
+using OpenAI.Chat;
 using static ModelContextProtocol.Protocol.ElicitRequestParams;
 
 #region Initialization and Server Startup
@@ -287,16 +288,16 @@ async ValueTask<CreateMessageResult> HandleSamplingAsync(
 
         token.ThrowIfCancellationRequested();
 
-        var samplingAgent = chatClient.CreateAIAgent(
+        var samplingAgent = chatClient.AsAIAgent(
             instructions: string.IsNullOrWhiteSpace(requestParams.SystemPrompt)
                 ? "You are a sampling runner. Respond as the assistant to the provided transcript. Do not call tools unless explicitly instructed."
                 : requestParams.SystemPrompt,
             name: "SamplingRunner",
             tools: Array.Empty<AITool>());
 
-        var samplingThread = samplingAgent.GetNewThread();
+        var samplingSession = await samplingAgent.CreateSessionAsync();
         var transcript = BuildSamplingTranscript(requestParams);
-        var response = await samplingAgent.RunAsync(transcript, samplingThread);
+        var response = await samplingAgent.RunAsync(transcript, samplingSession);
 
         var generatedText = response.Text;
 
@@ -533,7 +534,7 @@ if (mcpClient.ServerCapabilities.Prompts is not null)
 }
 
 // Create AI Agent
-AIAgent agent = chatClient.CreateAIAgent(
+AIAgent agent = chatClient.AsAIAgent(
     instructions:
     #region Agent Instructions
     $@"You are a helpful system diagnostics assistant.
@@ -606,8 +607,8 @@ AIAgent agent = chatClient.CreateAIAgent(
         name: "WinDiagAgent",
         tools: allTools);
 
-// Create a new agent thread with history management
-var thread = agent.GetNewThread();
+// Create a new agent session with history management
+var session = await agent.CreateSessionAsync();
 
 #endregion // Agent Initialization
 
@@ -631,8 +632,8 @@ while (true)
 
     try
     {
-        // Run agent with thread - framework handles history automatically
-        var response = await agent.RunAsync(input, thread);
+        // Run agent with session - framework handles history automatically
+        var response = await agent.RunAsync(input, session);
         Console.WriteLine($"Agent: {response.Text}");
     }
     catch (Exception ex)
