@@ -9,7 +9,6 @@ using Microsoft.Extensions.AI;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using OpenAI;
-using OpenAI.Chat;
 using static ModelContextProtocol.Protocol.ElicitRequestParams;
 
 #region Initialization and Server Startup
@@ -271,8 +270,13 @@ async ValueTask<ElicitResult> HandleElicitationAsync(ElicitRequestParams? reques
 var azureClient = new AzureOpenAIClient(endpoint, credential);
 var chatClient = azureClient.GetChatClient(deploymentName);
 
+// Use IChatClient (raw MEAI adapter, no FunctionInvokingChatClient) for a single LLM
+// round-trip. GetResponseAsync is the MEAI 9.4+ rename of CompleteAsync and always
+// populates Message.Text correctly regardless of how the routed model structures output.
+var samplingChatClient = chatClient.AsIChatClient();
+
 async ValueTask<CreateMessageResult> HandleSamplingAsync(
-    CreateMessageRequestParams? requestParams, 
+    CreateMessageRequestParams? requestParams,
     CancellationToken token)
 {
     try
@@ -282,38 +286,41 @@ async ValueTask<CreateMessageResult> HandleSamplingAsync(
             throw new ArgumentNullException(nameof(requestParams));
         }
 
-        // IMPORTANT: Sampling is the server asking the client to run an LLM on its behalf.
-        // The client must remain generic: do not add domain knowledge or validate/transform the result.
-        // If the server wants retries or stricter formatting, it should call sampling again.
-
         token.ThrowIfCancellationRequested();
 
-        var samplingAgent = chatClient.AsAIAgent(
-            instructions: string.IsNullOrWhiteSpace(requestParams.SystemPrompt)
-                ? "You are a sampling runner. Respond as the assistant to the provided transcript. Do not call tools unless explicitly instructed."
-                : requestParams.SystemPrompt,
-            name: "SamplingRunner",
-            tools: Array.Empty<AITool>());
+        var messages = new List<ChatMessage>();
 
-        var samplingSession = await samplingAgent.CreateSessionAsync();
-        var transcript = BuildSamplingTranscript(requestParams);
-        var response = await samplingAgent.RunAsync(transcript, samplingSession);
+        if (!string.IsNullOrWhiteSpace(requestParams.SystemPrompt))
+        {
+            messages.Add(new ChatMessage(ChatRole.System, requestParams.SystemPrompt));
+        }
 
-        var generatedText = response.Text;
+        foreach (var msg in requestParams.Messages)
+        {
+            var role = msg.Role == Role.User ? ChatRole.User : ChatRole.Assistant;
+            var textContent = string.Concat(
+                msg.Content.OfType<TextContentBlock>().Select(b => b.Text));
+            messages.Add(new ChatMessage(role, textContent));
+        }
+
+        // Do not cap MaxOutputTokens from the server's MaxTokens hint: reasoning models
+        // (o3/o4-mini) spend tokens on internal thought before producing visible text.
+        // Passing a small max_completion_tokens starves the output stage, returning
+        // FinishReason=length with an empty response. Let the model use its default limit.
+        var chatOptions = new ChatOptions();
+
+        var response = await samplingChatClient.GetResponseAsync(messages, chatOptions, token);
+        var generatedText = response.Text ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(generatedText))
         {
-            Console.WriteLine("[Warning] Sampling response contained no text content. Returning empty string.");
-            generatedText = string.Empty;
+            Console.WriteLine($"[Warning] Sampling returned no text. FinishReason={response.FinishReason}.");
         }
 
         return new CreateMessageResult
         {
             Role = Role.Assistant,
-            Content = new List<ContentBlock>
-            {
-                new TextContentBlock { Text = generatedText }
-            },
+            Content = [new TextContentBlock { Text = generatedText }],
             Model = deploymentName,
             StopReason = "endTurn"
         };
@@ -324,10 +331,7 @@ async ValueTask<CreateMessageResult> HandleSamplingAsync(
         return new CreateMessageResult
         {
             Role = Role.Assistant,
-            Content = new List<ContentBlock>
-            {
-                new TextContentBlock { Text = $"[SamplingError] {ex.GetType().Name}: {ex.Message}" }
-            },
+            Content = [new TextContentBlock { Text = $"[SamplingError] {ex.GetType().Name}: {ex.Message}" }],
             Model = deploymentName,
             StopReason = "error"
         };
@@ -516,7 +520,7 @@ if (mcpClient.ServerCapabilities.Prompts is not null)
 }
 
 // Create AI Agent
-AIAgent agent = chatClient.AsAIAgent(
+AIAgent agent = samplingChatClient.AsAIAgent(
     instructions:
     #region Agent Instructions
     $@"You are a helpful system diagnostics assistant.
@@ -636,37 +640,4 @@ while (true)
 
 #endregion // Chat Loop
 
-#region Helpers
-static string BuildSamplingTranscript(CreateMessageRequestParams requestParams)
-{
-    var sb = new StringBuilder();
-
-    if (!string.IsNullOrWhiteSpace(requestParams.SystemPrompt))
-    {
-        sb.AppendLine("[SYSTEM]");
-        sb.AppendLine(requestParams.SystemPrompt);
-        sb.AppendLine();
-    }
-
-    foreach (var msg in requestParams.Messages)
-    {
-        sb.AppendLine($"[{msg.Role}]");
-        foreach (var block in msg.Content)
-        {
-            if (block is TextContentBlock text)
-            {
-                sb.AppendLine(text.Text);
-            }
-            else
-            {
-                sb.AppendLine(block.ToString());
-            }
-        }
-
-        sb.AppendLine();
-    }
-
-    return sb.ToString();
-}
-#endregion // Helpers
 
